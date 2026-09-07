@@ -36,16 +36,29 @@ export default function RootLayout({
           </Link>
         </header>
         <main className="flex-1">{children}</main>
-        <footer className="flex items-center justify-center gap-6 border-t border-border py-6 text-sm text-muted-foreground">
-          <Link href="/about" className="hover:text-foreground">
-            About
-          </Link>
-          <Link href="/contact" className="hover:text-foreground">
-            Contact
-          </Link>
-          <Link href="/privacy" className="hover:text-foreground">
-            Privacy
-          </Link>
+        <footer className="flex flex-col items-center gap-3 border-t border-border py-6 text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-6">
+            <Link href="/about" className="hover:text-foreground">
+              About
+            </Link>
+            <Link href="/contact" className="hover:text-foreground">
+              Contact
+            </Link>
+            <Link href="/privacy" className="hover:text-foreground">
+              Privacy
+            </Link>
+          </div>
+          <p>
+            Developed with 💖 by{" "}
+            <a
+              href="https://zeeshanai.cloud"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium hover:text-foreground"
+            >
+              Zeeshan Altaf
+            </a>
+          </p>
         </footer>
       </body>
     </html>

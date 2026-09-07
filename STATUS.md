@@ -2,7 +2,7 @@
 
 Tracks progress across sessions. **Read this first when starting a new session**, then open the phase doc you are working on.
 
-Last updated: 2026-09-07 · Current phase: **Phase 6 — not started**
+Last updated: 2026-09-07 · Current phase: **Phase 7 — not started**
 
 ---
 
@@ -15,7 +15,7 @@ Last updated: 2026-09-07 · Current phase: **Phase 6 — not started**
 | 3 | Measurement engine | [docs/phase-3-engine.md](docs/phase-3-engine.md) | Done |
 | 4 | Test UI | [docs/phase-4-ui.md](docs/phase-4-ui.md) | Done |
 | 5 | Persistence & share links | [docs/phase-5-persistence.md](docs/phase-5-persistence.md) | Done |
-| 6 | Contact & Privacy | [docs/phase-6-contact-privacy.md](docs/phase-6-contact-privacy.md) | Not started |
+| 6 | Contact & Privacy | [docs/phase-6-contact-privacy.md](docs/phase-6-contact-privacy.md) | Done |
 | 7 | PWA, embed, rate limiting | [docs/phase-7-pwa-embed.md](docs/phase-7-pwa-embed.md) | Not started |
 | 8 | SEO | [docs/phase-8-seo.md](docs/phase-8-seo.md) | Not started |
 | 9 | Deploy & domain | [docs/phase-9-deploy.md](docs/phase-9-deploy.md) | Not started |
@@ -140,3 +140,16 @@ Built `lib/hash.ts` (sha256 IP hash), `lib/ratelimit.ts` (Upstash sliding window
 `tsc --noEmit`, `eslint` (0 new issues — the only lint error is pre-existing in `worker/src/index.ts`, unrelated to this phase), and `npm test` (31/31, unchanged) all clean. `next build --turbopack` succeeds with the new routes listed.
 
 **Next session: start Phase 6 (Contact & Privacy)** — Phase 7 (PWA/embed/rate limiting) and Phase 8 (SEO) are still blocked on it per the phase table's ordering note.
+
+### 2026-09-07 — Phase 6 complete
+Used the `nextjs-contact-form` skill, which already targets the exact env var names in `.env.local` (`N8N_CONTACT_WEBHOOK_URL`, `N8N_API_KEY`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`) — no renaming needed. Added `lib/rate-limit.ts` as its own Upstash sliding-window limiter (5/10min, `netgauge:ratelimit:contact` prefix) separate from Phase 5's `lib/ratelimit.ts` (5/60s, `netgauge:ratelimit:results`) since the two endpoints have different abuse profiles; it fails open (allows the request) if Upstash env vars are absent, so a misconfigured env never hard-breaks the form.
+
+`app/api/contact/route.ts` accepts both JSON (fetch path) and `application/x-www-form-urlencoded` (native no-JS fallback), returns **303** redirects for the form-post path so the browser re-fetches with GET instead of re-POSTing, and pretends success on a tripped honeypot (`hp_field`) so bots get no signal. `components/contact-form.tsx` keeps the dual `action="/api/contact" method="post"` + `onSubmit` wiring from the skill's progressive-enhancement pattern intact, restyled with the project's actual shadcn primitives (`Input`/`Textarea`/`Label`/`Button` — added via `npx shadcn@latest add input textarea label`, matching the existing `base-nova`/Base UI style) instead of the skill's raw-Tailwind baseline, and uses the project's `--primary`/`--destructive` tokens instead of hardcoded emerald/red.
+
+`app/privacy/page.tsx` describes the real data flow read out of `prisma/schema.prisma` and `app/api/results/route.ts` — every completed test (not just shared ones) is persisted with a salted SHA-256 IP hash plus ISP/ASN/city/country, share links are public to anyone with the URL, local history is `localStorage`-only, and the four processors (Vercel, Cloudflare, Upstash, self-hosted n8n) are named with what each one actually handles. Deletion is by share-link ID via `/contact`, since no direct identifier is stored to look results up by requester.
+
+Also added the footer developer credit ("Developed with 💖 by Zeeshan Altaf", linking to `https://zeeshanai.cloud`) per this session's explicit request — not part of the phase doc.
+
+**Verified live, not mocked:** a real POST reached the n8n webhook and returned 200 (4s round trip, confirming the workflow is active — an inactive one would 404); the honeypot field silently returns `{success:true}` without calling the webhook; 6 rapid requests hit `429` after the 5th (Upstash sliding window confirmed live, not just fail-open); the native urlencoded POST path returns a real `303` to `/contact?error=rate`. `next build --turbopack` succeeds with `/contact` (dynamic) and `/privacy` (static) both listed.
+
+**Next session: start Phase 7 (PWA, embed, rate limiting).**
