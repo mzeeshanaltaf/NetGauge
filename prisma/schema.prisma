@@ -1,0 +1,30 @@
+datasource db {
+  provider = "postgresql"
+  schemas  = ["netgauge"]
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated"
+}
+
+model Result {
+  id           String   @id
+  createdAt    DateTime @default(now())
+  downloadMbps Decimal
+  uploadMbps   Decimal
+  idleMs       Decimal
+  jitterMs     Decimal
+  loadedDownMs Decimal
+  loadedUpMs   Decimal
+  bufferbloat  String
+  isp          String?
+  asn          Int?
+  colo         String?
+  city         String?
+  country      String?
+  ipHash       String
+
+  @@map("results")
+  @@schema("netgauge")
+}
