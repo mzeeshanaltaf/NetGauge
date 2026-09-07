@@ -2,7 +2,7 @@
 
 Tracks progress across sessions. **Read this first when starting a new session**, then open the phase doc you are working on.
 
-Last updated: 2026-09-07 · Current phase: **Phase 2 — not started**
+Last updated: 2026-09-07 · Current phase: **Phase 3 — not started**
 
 ---
 
@@ -11,7 +11,7 @@ Last updated: 2026-09-07 · Current phase: **Phase 2 — not started**
 | # | Phase | Doc | Status |
 |---|---|---|---|
 | 1 | Foundation | [docs/phase-1-foundation.md](docs/phase-1-foundation.md) | Done |
-| 2 | Cloudflare Worker (data plane) | [docs/phase-2-worker.md](docs/phase-2-worker.md) | Not started |
+| 2 | Cloudflare Worker (data plane) | [docs/phase-2-worker.md](docs/phase-2-worker.md) | Done |
 | 3 | Measurement engine | [docs/phase-3-engine.md](docs/phase-3-engine.md) | Not started |
 | 4 | Test UI | [docs/phase-4-ui.md](docs/phase-4-ui.md) | Not started |
 | 5 | Persistence & share links | [docs/phase-5-persistence.md](docs/phase-5-persistence.md) | Not started |
@@ -32,7 +32,7 @@ Fill these in as phases complete — later phases need them.
 
 | Value | Set in | Current |
 |---|---|---|
-| Worker URL (`NEXT_PUBLIC_WORKER_URL`) | Phase 2 | _not yet_ |
+| Worker URL (`NEXT_PUBLIC_WORKER_URL`) | Phase 2 | `https://netgauge-worker.zeeshanai.workers.dev` |
 | Vercel DNS target (`<hash>.vercel-dns-017.com`) | Phase 9 | _not yet_ |
 | GitHub repo | Phase 1 | _not yet — local git repo only, no remote pushed_ |
 | Vercel project | Phase 9 | _not yet_ |
@@ -62,3 +62,18 @@ Layout shell: root layout with `next/font` (Geist, subsetted), footer linking Ab
 Verified: `tsc --noEmit` clean, `npm run dev` serves 200 with expected content, `prisma migrate status` clean.
 
 **Next session: start Phase 2 (Cloudflare Worker).** No GitHub repo created yet — local commits only, on `main`.
+
+### 2026-09-07 — Phase 2 complete and deployed
+Built `worker/src/index.ts` with all four routes: `GET /ping` (204), `GET /download?bytes=N` (streamed via `ReadableStream.pull`, never buffered), `POST /upload` (drained via `request.body.pipeTo(new WritableStream())`, never buffered), `GET /meta` (ip/asn/asOrganization/colo/httpProtocol from `request.cf`).
+
+Hit one runtime gotcha not in the doc: `crypto.getRandomValues()` at module scope throws `Disallowed operation called within global scope` under workerd — random generation, like fetch/setTimeout, is only allowed inside a handler. Fixed by lazily generating the 64 KB chunk on first request and caching it per-isolate (`getChunk()`), instead of at module load.
+
+`Content-Encoding: identity`, `Cache-Control: no-store, no-transform`, and `Timing-Allow-Origin: *` are set on every response. CORS allowlist (`isAllowedOrigin`) covers `https://netgauge.zeeshanai.cloud`, `http://localhost:3000`, and any `*.vercel.app` preview; embed hosts get added in Phase 7. Rate limiting is **deliberately deferred to Phase 7** per the phase table — the doc's "Other notes" mentions it but "Done when" doesn't require it yet.
+
+Verified locally against `wrangler dev` (all commands from the doc's Verification section): no `content-encoding: gzip`, `size_download` exact match at 1,000,000 bytes for a 1 MB request, `/meta` returns real ASN (9541) and colo (LHE), `/upload` returns 204 for a piped body, disallowed origins get no `Access-Control-Allow-Origin`, `OPTIONS` preflight returns 204 with the right CORS headers, bad `bytes` param returns 400, unknown routes return 404. `tsc --noEmit` clean.
+
+**Deployed.** `wrangler login`/`wrangler deploy` needed an interactive browser OAuth flow this session couldn't drive, so the user ran `cd worker && npx wrangler deploy` themselves, chose the account-wide workers.dev subdomain `zeeshanai`, and got `https://netgauge-worker.zeeshanai.workers.dev`. Re-ran the full `curl` verification from the doc against that live URL: no `content-encoding: gzip`, exact 1,000,000-byte transfer, `/meta` returns real ASN (9541) and colo (LHE), `/upload` returns 204. `NEXT_PUBLIC_WORKER_URL` set in `.env.local`.
+
+Also ran Cloudflare's official agent-setup (`https://developers.cloudflare.com/agent-setup/prompt.md`) at the user's request: `claude plugin marketplace add cloudflare/skills` + `claude plugin install cloudflare@cloudflare` (user scope) — installs Cloudflare skills and the Cloudflare MCP servers (docs/bindings/builds/observability) for future sessions. Needs `/reload-plugins` to activate; first Cloudflare MCP tool call will trigger its own browser OAuth. Unrelated to the Worker's own Cloudflare account auth above.
+
+**Next session: start Phase 3 (measurement engine).**
