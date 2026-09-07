@@ -3,7 +3,9 @@
  * traffic never touches Vercel or the VPS. See docs/phase-2-worker.md.
  */
 
-interface Env {}
+interface Env {
+  RATE_LIMITER: RateLimit;
+}
 
 // crypto.getRandomValues caps at 65536 bytes per call. Random generation is
 // disallowed in the Workers global scope, so this is lazily generated on the
@@ -22,7 +24,9 @@ function getChunk(): Uint8Array {
 // line, small enough to keep a single request from running away.
 const MAX_DOWNLOAD_BYTES = 500 * 1024 * 1024;
 
-// Phase 7 adds embeddable-widget hosts to this list.
+// /embed is served from the same origin as the main site (it's an iframe
+// pointed at netgauge.zeeshanai.cloud/embed, not a separate deployment), so
+// its fetches carry this same Origin — no extra entry needed for it.
 const STATIC_ALLOWED_ORIGINS = new Set([
   "https://netgauge.zeeshanai.cloud",
   "http://localhost:3000",
@@ -66,8 +70,20 @@ function handlePing(request: Request): Response {
   return new Response(null, { status: 204, headers: baseHeaders(request.headers.get("Origin")) });
 }
 
-function handleDownload(request: Request, url: URL): Response {
+function tooManyRequests(origin: string | null): Response {
+  const headers = baseHeaders(origin);
+  headers.set("Content-Type", "application/json");
+  headers.set("Retry-After", "60");
+  return new Response(JSON.stringify({ error: "rate limit exceeded" }), { status: 429, headers });
+}
+
+async function handleDownload(request: Request, url: URL, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+
+  const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const { success } = await env.RATE_LIMITER.limit({ key: ip });
+  if (!success) return tooManyRequests(origin);
+
   const bytesParam = url.searchParams.get("bytes");
   const bytes = bytesParam ? Number(bytesParam) : NaN;
 
@@ -105,8 +121,13 @@ function handleDownload(request: Request, url: URL): Response {
   return new Response(stream, { status: 200, headers });
 }
 
-async function handleUpload(request: Request): Promise<Response> {
+async function handleUpload(request: Request, env: Env): Promise<Response> {
   const origin = request.headers.get("Origin");
+
+  const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
+  const { success } = await env.RATE_LIMITER.limit({ key: ip });
+  if (!success) return tooManyRequests(origin);
+
   if (request.body) {
     // Drain without buffering — the client's byte count comes from
     // xhr.upload.onprogress, not from anything the Worker returns.
@@ -136,7 +157,7 @@ function handleMeta(request: Request): Response {
 }
 
 export default {
-  async fetch(request: Request, _env: Env, _ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     if (request.method === "OPTIONS") {
       return handleOptions(request);
     }
@@ -148,11 +169,11 @@ export default {
     }
 
     if (url.pathname === "/download" && request.method === "GET") {
-      return handleDownload(request, url);
+      return handleDownload(request, url, env);
     }
 
     if (url.pathname === "/upload" && request.method === "POST") {
-      return handleUpload(request);
+      return handleUpload(request, env);
     }
 
     if (url.pathname === "/meta" && request.method === "GET") {

@@ -1,6 +1,6 @@
-import type { Metadata } from "next";
-import Link from "next/link";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { SiteChrome } from "@/components/site-chrome";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,6 +18,15 @@ export const metadata: Metadata = {
   title: "netgauge — Internet Speed Test",
   description:
     "Measure download, upload, latency, jitter, and bufferbloat with per-use-case verdicts.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "netgauge",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({
@@ -30,44 +39,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased flex min-h-screen flex-col`}
       >
-        <header className="flex h-16 items-center justify-between border-b border-border px-4">
-          <Link href="/" className="text-sm font-semibold tracking-tight text-foreground">
-            netgauge
-          </Link>
-          <nav className="flex items-center gap-6 text-sm text-muted-foreground">
-            <Link href="/about" className="hover:text-foreground">
-              About
-            </Link>
-            <Link href="/contact" className="hover:text-foreground">
-              Contact
-            </Link>
-          </nav>
-        </header>
-        <main className="flex-1">{children}</main>
-        <footer className="flex flex-col items-center gap-3 border-t border-border py-6 text-sm text-muted-foreground">
-          <div className="flex items-center justify-center gap-6">
-            <Link href="/about" className="hover:text-foreground">
-              About
-            </Link>
-            <Link href="/contact" className="hover:text-foreground">
-              Contact
-            </Link>
-            <Link href="/privacy" className="hover:text-foreground">
-              Privacy
-            </Link>
-          </div>
-          <p>
-            Developed with 💖 by{" "}
-            <a
-              href="https://zeeshanai.cloud"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium hover:text-foreground"
-            >
-              Zeeshan Altaf
-            </a>
-          </p>
-        </footer>
+        <SiteChrome>{children}</SiteChrome>
       </body>
     </html>
   );

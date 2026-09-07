@@ -12,6 +12,14 @@ export const DEFAULT_CONFIG: SpeedTestConfig = {
   upload: DEFAULT_UPLOAD_CONFIG,
 };
 
+// The Worker's rate limiter is per-IP, so a real user can hit it (rerunning
+// the test repeatedly, or a busy embed host) — give it a message worth
+// reading instead of a bare status code.
+function describeFailure(status: number, action: string): string {
+  if (status === 429) return "You're testing too frequently. Wait a minute and try again.";
+  return `${action} failed: ${status}`;
+}
+
 /** Default DataPlane implementation: the netgauge Cloudflare Worker. */
 export class CloudflareDataPlane implements DataPlane {
   constructor(private readonly baseUrl: string) {}
@@ -30,13 +38,13 @@ export class CloudflareDataPlane implements DataPlane {
     const start = performance.now();
     const res = await fetch(this.url("/ping"), { cache: "no-store", signal });
     const end = performance.now();
-    if (!res.ok) throw new Error(`ping failed: ${res.status}`);
+    if (!res.ok) throw new Error(describeFailure(res.status, "ping"));
     return end - start;
   }
 
   async download(bytes: number, onChunk: (deltaBytes: number, timestampMs: number) => void, signal: AbortSignal): Promise<void> {
     const res = await fetch(this.url("/download", { bytes: String(bytes) }), { cache: "no-store", signal });
-    if (!res.ok || !res.body) throw new Error(`download failed: ${res.status}`);
+    if (!res.ok || !res.body) throw new Error(describeFailure(res.status, "download"));
 
     const reader = res.body.getReader();
     try {
@@ -72,7 +80,7 @@ export class CloudflareDataPlane implements DataPlane {
 
       xhr.onload = () => {
         if (xhr.status === 204 || xhr.status === 200) resolve();
-        else reject(new Error(`upload failed: ${xhr.status}`));
+        else reject(new Error(describeFailure(xhr.status, "upload")));
       };
       xhr.onerror = () => reject(new Error("upload network error"));
 

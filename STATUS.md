@@ -2,7 +2,7 @@
 
 Tracks progress across sessions. **Read this first when starting a new session**, then open the phase doc you are working on.
 
-Last updated: 2026-09-07 · Current phase: **Phase 7 — not started**
+Last updated: 2026-09-07 · Current phase: **Phase 8 — not started**
 
 ---
 
@@ -16,7 +16,7 @@ Last updated: 2026-09-07 · Current phase: **Phase 7 — not started**
 | 4 | Test UI | [docs/phase-4-ui.md](docs/phase-4-ui.md) | Done |
 | 5 | Persistence & share links | [docs/phase-5-persistence.md](docs/phase-5-persistence.md) | Done |
 | 6 | Contact & Privacy | [docs/phase-6-contact-privacy.md](docs/phase-6-contact-privacy.md) | Done |
-| 7 | PWA, embed, rate limiting | [docs/phase-7-pwa-embed.md](docs/phase-7-pwa-embed.md) | Not started |
+| 7 | PWA, embed, rate limiting | [docs/phase-7-pwa-embed.md](docs/phase-7-pwa-embed.md) | Done |
 | 8 | SEO | [docs/phase-8-seo.md](docs/phase-8-seo.md) | Not started |
 | 9 | Deploy & domain | [docs/phase-9-deploy.md](docs/phase-9-deploy.md) | Not started |
 
@@ -153,3 +153,27 @@ Also added the footer developer credit ("Developed with 💖 by Zeeshan Altaf", 
 **Verified live, not mocked:** a real POST reached the n8n webhook and returned 200 (4s round trip, confirming the workflow is active — an inactive one would 404); the honeypot field silently returns `{success:true}` without calling the webhook; 6 rapid requests hit `429` after the 5th (Upstash sliding window confirmed live, not just fail-open); the native urlencoded POST path returns a real `303` to `/contact?error=rate`. `next build --turbopack` succeeds with `/contact` (dynamic) and `/privacy` (static) both listed.
 
 **Next session: start Phase 7 (PWA, embed, rate limiting).**
+
+### 2026-09-07 — Phase 7 complete
+
+**Chrome-less `/embed` without a full route-group split.** Considered restructuring `app/` into `(site)`/`embed` route groups (Next's documented pattern for multiple root layouts) but that meant moving every existing route. Went with the smaller change instead: `components/site-chrome.tsx` (new, `"use client"`) owns the header/nav/footer markup verbatim from the old `app/layout.tsx` and conditionally renders `null` for them when `usePathname()` starts with `/embed`; `app/layout.tsx` keeps `<html>/<body>` and just renders `<SiteChrome>{children}</SiteChrome>`. Same component also owns the service worker registration `useEffect`, skipped on `/embed` for the same reason. `components/embed-widget.tsx` reuses `useSpeedTest`, `Gauge`, `LiveChart`, and `ResultCard` verbatim (all already framework-agnostic enough) minus `IspPanel`/`History`/result-submission — an embedded widget on a stranger's site shouldn't write to this origin's `localStorage` history or silently POST to `/api/results`. `components/embed-loader.tsx` mirrors `speed-test-loader.tsx`'s `ssr:false` wrapper pattern exactly (same Server Component constraint).
+
+**Cross-origin iframing needed an explicit CSP, not a CORS change.** Realized mid-implementation that "add embed hosts to the Worker's CORS allowlist" (the doc's phrasing) doesn't actually need new entries — `/embed` is same-origin JS making requests back to `netgauge.zeeshanai.cloud`, so the `Origin` header the Worker sees is always our own origin regardless of which third-party site has it in an iframe. The actual requirement for third-party iframing is not being blocked by frame-ancestors/X-Frame-Options. Next sets neither by default, so `/embed` was already embeddable, but added an explicit `Content-Security-Policy: frame-ancestors *` in `next.config.ts` `headers()` scoped to `/embed` only, both as documentation of intent and as a guard against a future global CSP (Phase 8/9) accidentally locking it down.
+
+**Worker rate limiting uses Cloudflare's native `[[ratelimits]]` binding** (`worker/wrangler.toml`), not Upstash — `env.RATE_LIMITER.limit({key: cf-connecting-ip})`, checked only in `handleDownload`/`handleUpload` (not `/ping` or `/meta`, which are cheap and shouldn't count against the same budget). Sized limit=100/period=60 (period is capped by CF to 10 or 60s, no finer control) after measuring actual request volume: `DEFAULT_CONFIG`'s loaded-latency probes alone fire ~50 `/ping` requests per phase (200ms interval over a 10s window) which don't count, but download+upload data requests (6 streams, ~3-4 requests each over 10s) add up to ~48 rate-limited requests per full test run — 100/60s allows about two consecutive full tests per IP per minute while still capping a scripted loop hammering `/download?bytes=<large>`. **Verified live against `wrangler dev`'s local rate-limit simulator** (not mocked): 101st `/download` request in a 60s window returns 429 with CORS headers intact (`Access-Control-Allow-Origin` + `Retry-After: 60` both present, so the browser can actually read the failure rather than seeing an opaque CORS error) and 100 succeed.
+
+Added `describeFailure()` to `lib/speedtest/index.ts` so a 429 from the Worker surfaces as "You're testing too frequently. Wait a minute and try again." instead of "download failed: 429" — confirmed end-to-end with a real browser (Playwright) pointed at the exhausted local `wrangler dev` worker: the UI reaches the error state with that exact readable text and a working "Try again" button, never hangs.
+
+**PWA icons generated with `sharp`**, which turned out to already be present in the root `node_modules` (an optional dependency of `next` itself, for its image-optimization pipeline) despite not being declared in `package.json` — used only in a one-off scratchpad script to rasterize an inline SVG (a semicircle gauge arc on a rounded blue square, echoing `components/gauge.tsx`'s own arc) into `public/icons/icon-{192,512}.png`, `public/icons/icon-maskable-512.png` (flat/full-bleed variant, content kept inside the ~80% safe zone), and `app/apple-icon.png` (Next's file-convention auto-detection, 180×180, also flat since iOS re-rounds its own mask). Script and its dependency were never added to the repo or `package.json`.
+
+`public/sw.js` intercepts only same-origin, GET, `navigate`-mode requests (i.e., page loads) and falls back to a cached `/` when the network fetch fails — everything else (the Worker origin, `/api/*`, any non-navigation request) is never touched by `respondWith`, so it structurally cannot serve a cached `/download`/`/upload` response. Also added a redundant explicit origin check against a hardcoded `WORKER_ORIGIN` constant in the fetch handler per the doc's "explicitly exclude" wording, even though the navigate-only scoping already guarantees it. **Verified live, not just by inspection:** registered the SW, confirmed the page becomes SW-controlled after a reload, then went fully offline (`context.setOffline(true)`) via Playwright — a navigation to `/` still returned 200 from the cached shell, while a `fetch()` to the live Worker's `/download` endpoint from the same offline page threw `Failed to fetch` rather than returning any response — proving the offline path can install/reload the shell but can never fabricate a test result.
+
+`app/manifest.ts` (name/short_name/icons/theme_color `#2563eb`, matching `--primary`/`--chart-1`'s hue/`standalone` display); `viewport.themeColor` and `metadata.appleWebApp` added to `app/layout.tsx` for the browser-chrome tint and iOS standalone title.
+
+**Verified end-to-end with Playwright** (installed to a scratch npm project outside the repo, per the pattern from Phase 3/4's sessions — never added to `package.json`): main site still has its header and the SW registers; `/embed` in a fresh browser context has no header, shows the "Powered by netgauge" attribution link, does **not** register a service worker, and a real test run against it reaches the running/measuring state; a genuinely cross-origin host page (a throwaway `http.createServer` on a different port = different origin) successfully iframes `/embed` with zero console errors and no visible chrome inside the frame.
+
+`tsc --noEmit` (root and `worker/`), `eslint` (0 new issues — only pre-existing `_ctx`-unused warnings and `.wrangler/` build-artifact noise), `npm test` (31/31 unchanged), and a clean `rm -rf .next && next build --turbopack` all pass.
+
+**Not done in this phase, out of scope per the doc:** no Lighthouse CLI run (verified the underlying installability criteria — manifest, icons, SW, offline shell — directly instead, since a Lighthouse binary wasn't available in this environment); no changes to `lib/ratelimit.ts`/`lib/rate-limit.ts` (Vercel-side limiting) since Phases 5 and 6 already built those ahead of this phase's own schedule and the doc's "Vercel `/api/results`, `/api/contact`" row was already satisfied.
+
+**Next session: start Phase 8 (SEO).**

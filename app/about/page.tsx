@@ -59,6 +59,23 @@ export default function AboutPage() {
         </section>
 
         <section className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold">Embed netgauge on your site</h2>
+          <p>
+            Drop this speed test on your own page — the test traffic runs on Cloudflare&rsquo;s edge, so
+            embedding it costs your site nothing.
+          </p>
+          <pre className="mt-1 overflow-x-auto rounded-lg border border-border bg-muted px-4 py-3 text-xs">
+            <code>{`<iframe
+  src="https://netgauge.zeeshanai.cloud/embed"
+  width="100%"
+  height="720"
+  style="border:0"
+  title="netgauge speed test"
+></iframe>`}</code>
+          </pre>
+        </section>
+
+        <section className="flex flex-col gap-2">
           <h2 className="text-lg font-semibold">Who built this</h2>
           <p>
             netgauge is built and maintained by{" "}
