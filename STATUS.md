@@ -2,7 +2,7 @@
 
 Tracks progress across sessions. **Read this first when starting a new session**, then open the phase doc you are working on.
 
-Last updated: 2026-09-07 · Current phase: **Phase 3 — not started**
+Last updated: 2026-09-07 · Current phase: **Phase 4 — not started**
 
 ---
 
@@ -12,7 +12,7 @@ Last updated: 2026-09-07 · Current phase: **Phase 3 — not started**
 |---|---|---|---|
 | 1 | Foundation | [docs/phase-1-foundation.md](docs/phase-1-foundation.md) | Done |
 | 2 | Cloudflare Worker (data plane) | [docs/phase-2-worker.md](docs/phase-2-worker.md) | Done |
-| 3 | Measurement engine | [docs/phase-3-engine.md](docs/phase-3-engine.md) | Not started |
+| 3 | Measurement engine | [docs/phase-3-engine.md](docs/phase-3-engine.md) | Done |
 | 4 | Test UI | [docs/phase-4-ui.md](docs/phase-4-ui.md) | Not started |
 | 5 | Persistence & share links | [docs/phase-5-persistence.md](docs/phase-5-persistence.md) | Not started |
 | 6 | Contact & Privacy | [docs/phase-6-contact-privacy.md](docs/phase-6-contact-privacy.md) | Not started |
@@ -34,7 +34,7 @@ Fill these in as phases complete — later phases need them.
 |---|---|---|
 | Worker URL (`NEXT_PUBLIC_WORKER_URL`) | Phase 2 | `https://netgauge-worker.zeeshanai.workers.dev` |
 | Vercel DNS target (`<hash>.vercel-dns-017.com`) | Phase 9 | _not yet_ |
-| GitHub repo | Phase 1 | _not yet — local git repo only, no remote pushed_ |
+| GitHub repo | Phase 1 | `https://github.com/mzeeshanaltaf/NetGauge` |
 | Vercel project | Phase 9 | _not yet_ |
 
 ---
@@ -77,3 +77,25 @@ Verified locally against `wrangler dev` (all commands from the doc's Verificatio
 Also ran Cloudflare's official agent-setup (`https://developers.cloudflare.com/agent-setup/prompt.md`) at the user's request: `claude plugin marketplace add cloudflare/skills` + `claude plugin install cloudflare@cloudflare` (user scope) — installs Cloudflare skills and the Cloudflare MCP servers (docs/bindings/builds/observability) for future sessions. Needs `/reload-plugins` to activate; first Cloudflare MCP tool call will trigger its own browser OAuth. Unrelated to the Worker's own Cloudflare account auth above.
 
 **Next session: start Phase 3 (measurement engine).**
+
+### 2026-09-07 — Phase 3 complete
+Built `lib/speedtest/{types,latency,download,upload,grade,verdicts,index,worker}.ts` per the doc. `DataPlane` interface (`ping`/`download`/`upload`) in `types.ts` keeps the engine testable and endpoint-swappable; `CloudflareDataPlane` (the concrete implementation wired to the Phase 2 Worker) lives in `index.ts` alongside `runSpeedTest`, the orchestrator that runs the full sequence and emits `SpeedTestProgress` events.
+
+Key implementation choices not spelled out in the doc:
+- **Warm-up discard** is exact, not approximate: `ThroughputSampler` (in `download.ts`, reused by `upload.ts`) records a `{t, cumulativeBytes}` sample on every chunk and linearly interpolates the byte count at exactly `warmupMs` before computing throughput over the remainder — handles chunk boundaries that don't land on the 2s mark.
+- **Adaptive stream sizing**: each of the 6 parallel streams starts at `initialBytesPerStream` and doubles (capped at `maxBytesPerStream`) whenever a single request finishes faster than `requestTargetMs` (3s) — this is what "restart any stream that finishes early" and "scale up adaptively" cash out to concretely.
+- **Loaded latency** runs via a separate `AbortController` that's started before `measureDownload`/`measureUpload` and aborted right after — probes fire back-to-back (not on a fixed timer) so they reflect real queueing delay under saturation.
+- Upload's pre-generated `Blob` is generated once at `maxBytesPerStream` size and `.slice()`d per request, so scaling up never re-triggers `crypto.getRandomValues` (which caps at 65536 bytes/call).
+- `worker.ts` (the Web Worker entry point) types the global scope through a narrow local `WorkerGlobalScope` interface instead of a triple-slash `webworker` lib reference — the project's `tsconfig.json` targets `dom` lib for the main thread, and mixing `dom` + `webworker` lib refs in one program produces global type conflicts.
+
+**Also fixed, pre-existing from Phase 1/2:** root `tsconfig.json` had no `exclude` for `worker/`, so `tsc --noEmit` at the repo root was failing on Cloudflare-Workers-only globals (`ExecutionContext`, `request.cf`, etc.) that only resolve under `worker/tsconfig.json`'s `@cloudflare/workers-types`. Added `"worker"` to the root `exclude` array — the two are separate TS projects with separate deploy pipelines and always were.
+
+**Testing added:** `vitest` (devDependency; `npm test`). `vitest.config.ts` sets `css.postcss.plugins: []` — without it, Vite's config loader chokes on this project's Tailwind v4 `postcss.config.mjs` (`plugins: ["@tailwindcss/postcss"]` is a Next-specific shorthand Vite's postcss loader can't resolve on its own). 31 tests across `grade.test.ts` (every boundary from the doc: 4/5, 29/30, 59/60, 199/200, 399/400ms), `latency.test.ts` (median + jitter math, including the outlier-resistance case), and `verdicts.test.ts` (all four use cases, boundary and negative cases) — all passing.
+
+**Verified live against the deployed Worker** (`https://netgauge-worker.zeeshanai.workers.dev`) via a throwaway Node script (`tsx`, deleted after use): `/download?bytes=1000000` returns exactly 1,000,000 bytes with `content-encoding: identity` and `Timing-Allow-Origin: *` present; `measureIdleLatency` returns plausible RTTs (~30ms median this session); `measureDownload` + `measureLoadedLatency` run concurrently and show the expected bufferbloat signature (idle ~30ms RTT rising to 50-150ms under saturation). This exercises `CloudflareDataPlane.ping`/`.download`, `ThroughputSampler`, the warm-up discard, and the restart-on-finish/adaptive-sizing loop against the real network — the highest-risk logic in the phase.
+
+**Browser verification (upload path + full sequence) done by the user**, via a throwaway harness (bundled with `esbuild`, served with `npx serve` on `http://localhost:3000` — required to match the Worker's CORS allowlist — from the session's scratchpad directory, never added to the repo) that ran the full `runSpeedTest()` sequence including the XHR-based upload, which doesn't exist in Node and so couldn't be exercised by the earlier Node smoke test. Confirmed working. The harness process was stopped and the scratchpad files were never committed — nothing to clean up in the repo.
+
+**Phase 3 done.** GitHub remote now exists (`https://github.com/mzeeshanaltaf/NetGauge`) and this phase's work was pushed to it.
+
+**Next session: start Phase 4 (Test UI)** — this is what actually wires `lib/speedtest/worker.ts` into a `new Worker(...)` from a client component, per the "homepage is a split render" rule in `CLAUDE.md`.
