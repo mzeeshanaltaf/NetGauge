@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GUIDES } from "@/lib/guides";
+import { Logo } from "@/components/logo";
 
 // /embed is loaded in an <iframe> on other people's sites — it must render
 // chrome-less (no nav, no footer) and must not register the service worker,
@@ -29,9 +30,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
   return (
     <>
       <header className="flex h-16 items-center justify-between border-b border-border px-4">
-        <Link href="/" className="text-sm font-semibold tracking-tight text-foreground">
-          netgauge
-        </Link>
+        <Logo />
         <nav className="flex items-center gap-6 text-sm text-muted-foreground">
           <Link href="/about" className="hover:text-foreground">
             About

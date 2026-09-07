@@ -3,6 +3,7 @@ import Link from "next/link";
 import { SpeedTestLoader } from "@/components/speed-test-loader";
 import { FaqJsonLd } from "@/components/json-ld";
 import { GUIDES } from "@/lib/guides";
+import { LogoMark } from "@/components/logo";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://netgauge.zeeshanai.cloud";
 
@@ -48,6 +49,7 @@ export default function Home() {
     <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-4 pt-16 pb-24">
       <FaqJsonLd items={FAQ} />
       <div className="flex max-w-xl flex-col items-center gap-3 text-center">
+        <LogoMark size={56} className="mb-1" />
         <h1 className="text-4xl font-semibold tracking-tight text-balance md:text-5xl">
           Speed, latency, and bufferbloat in one test.
         </h1>
