@@ -14,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: process.env.NEXT_PUBLIC_SITE_URL ? new URL(process.env.NEXT_PUBLIC_SITE_URL) : undefined,
   title: "netgauge — Internet Speed Test",
   description:
     "Measure download, upload, latency, jitter, and bufferbloat with per-use-case verdicts.",

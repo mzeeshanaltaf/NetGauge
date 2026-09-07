@@ -1,14 +1,44 @@
 "use client";
 
-import { useMemo } from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, Check, Copy, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Gauge } from "@/components/gauge";
 import { LiveChart } from "@/components/live-chart";
 import { ResultCard } from "@/components/result-card";
 import { IspPanel } from "@/components/isp-panel";
+import { History } from "@/components/history";
 import { useSpeedTest, type ThroughputPoint } from "@/hooks/use-speed-test";
+import { useNetworkMeta } from "@/hooks/use-network-meta";
+import { useResultSubmission } from "@/hooks/use-result-submission";
 import type { SpeedTestProgress } from "@/lib/speedtest/types";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+
+function ShareLink({ shareId, submitting }: { shareId: string | null; submitting: boolean }) {
+  const [copied, setCopied] = useState(false);
+  if (submitting) {
+    return <p className="text-xs text-muted-foreground">Saving result…</p>;
+  }
+  if (!shareId) return null;
+
+  const url = `${SITE_URL}/r/${shareId}`;
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={async () => {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+    >
+      {copied ? <Check /> : <Copy />}
+      {copied ? "Link copied" : "Copy share link"}
+    </Button>
+  );
+}
 
 interface GaugeState {
   value: number;
@@ -60,6 +90,8 @@ function statusText(phase: SpeedTestProgress["phase"] | undefined): string {
 
 export default function SpeedTest() {
   const { status, progress, result, error, downloadSeries, uploadSeries, start } = useSpeedTest();
+  const { meta, metaFailed, geo } = useNetworkMeta();
+  const { shareId, submitting } = useResultSubmission(result, meta, geo);
 
   const downloadGauge = useMemo<GaugeState>(() => {
     const mbps = status === "done" && result ? result.download.mbps : lastReading(downloadSeries);
@@ -103,9 +135,16 @@ export default function SpeedTest() {
 
       <LiveChart downloadSeries={downloadSeries} uploadSeries={uploadSeries} />
 
-      {result && <ResultCard result={result} />}
+      {result && (
+        <>
+          <ResultCard result={result} />
+          <ShareLink shareId={shareId} submitting={submitting} />
+        </>
+      )}
 
-      <IspPanel />
+      <IspPanel meta={meta} metaFailed={metaFailed} geo={geo} />
+
+      <History />
     </div>
   );
 }

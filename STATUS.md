@@ -2,7 +2,7 @@
 
 Tracks progress across sessions. **Read this first when starting a new session**, then open the phase doc you are working on.
 
-Last updated: 2026-09-07 · Current phase: **Phase 5 — not started**
+Last updated: 2026-09-07 · Current phase: **Phase 6 — not started**
 
 ---
 
@@ -14,7 +14,7 @@ Last updated: 2026-09-07 · Current phase: **Phase 5 — not started**
 | 2 | Cloudflare Worker (data plane) | [docs/phase-2-worker.md](docs/phase-2-worker.md) | Done |
 | 3 | Measurement engine | [docs/phase-3-engine.md](docs/phase-3-engine.md) | Done |
 | 4 | Test UI | [docs/phase-4-ui.md](docs/phase-4-ui.md) | Done |
-| 5 | Persistence & share links | [docs/phase-5-persistence.md](docs/phase-5-persistence.md) | Not started |
+| 5 | Persistence & share links | [docs/phase-5-persistence.md](docs/phase-5-persistence.md) | Done |
 | 6 | Contact & Privacy | [docs/phase-6-contact-privacy.md](docs/phase-6-contact-privacy.md) | Not started |
 | 7 | PWA, embed, rate limiting | [docs/phase-7-pwa-embed.md](docs/phase-7-pwa-embed.md) | Not started |
 | 8 | SEO | [docs/phase-8-seo.md](docs/phase-8-seo.md) | Not started |
@@ -119,3 +119,24 @@ Built the full test UI per `docs/phase-4-ui.md`, run through the `/design-taste-
 **Not done in this phase (by design, deferred to later phases per the phase table):** no dark-mode toggle (system `prefers-color-scheme` only — Phase 4's doc didn't ask for one); no persistence of results (Phase 5); no rate limiting on the widget (Phase 7).
 
 **Next session: start Phase 5 (Persistence & share links).**
+
+### 2026-09-07 — Phase 5 complete
+Built `lib/hash.ts` (sha256 IP hash), `lib/ratelimit.ts` (Upstash sliding window, 5/60s, `Redis.fromEnv()`), `app/api/results/route.ts` (hand-rolled validation — no zod dependency — rate-limits by `ipAddress(request)` from `@vercel/functions`, hashes it, inserts via `db.result.create`, never stores the raw IP), `app/r/[id]/page.tsx` + `app/r/[id]/opengraph-image.tsx` (`noindex, follow`; `next/og`'s built-in `ImageResponse`, no `@vercel/og` package needed), `lib/history.ts` + `components/history.tsx` (localStorage, last 20, CSV/JSON export, trend chart).
+
+**Refactored the ISP panel's data fetching out from under it**, since Phase 5 needs the same worker-`/meta` + `/api/geo` data for DB submission that Phase 4's `IspPanel` already fetched for display — duplicating the fetch would mean two independent round trips per test. Added `hooks/use-network-meta.ts` (the fetch logic, moved verbatim out of `isp-panel.tsx`) and made `IspPanel` a pure props-in component; `speed-test.tsx` now calls the hook once and feeds both `IspPanel` and the new `hooks/use-result-submission.ts`.
+
+**The share page reuses `ResultCard` directly, unmodified.** It has no `"use client"` directive and only reads `.latencyMs`/`.jitterMs`/`.mbps` off its props — never `.samples` — so a `SpeedTestResult`-shaped object reconstructed from the DB row (empty `samples: []`, dummy `bytesTransferred`/`durationMs` since the card never reads them) renders identically server-side. `addedLatencyMs` isn't a DB column — recomputed on read as `max(loadedDownMs, loadedUpMs) - idleMs`, matching the exact formula in `lib/speedtest/index.ts`. Verdicts aren't stored either — recomputed via the same `computeVerdicts()` the live test uses, from the four stored raw numbers.
+
+**`app/robots.ts`/`app/sitemap.ts` deliberately not created here** — `docs/phase-8-seo.md` explicitly owns both files and phase 5's file list doesn't include them; only the page-level `noindex, follow` metadata was in scope now.
+
+**Added `metadataBase` to the root layout** (`app/layout.tsx`), reading `NEXT_PUBLIC_SITE_URL` — without it, Next can't resolve the file-convention OG image to the absolute URL the doc requires; confirmed via curl that `og:image` renders as `https://netgauge.zeeshanai.cloud/r/<id>/opengraph-image?...`, not a relative path.
+
+**Verified against the live VPS Postgres, not mocks:** POST a real payload → row lands in `netgauge.results` with `ipHash` as a 64-char hex digest (confirmed `!== raw IP`); hammered the endpoint 7x in a row → first 4 succeed (201), rest 429; malformed grade/missing fields get 400 (once outside the rate-limit window); `/r/<id>` for a real id renders the full result card + verdicts + `<meta name="robots" content="noindex, follow">` (curl, no browser/localStorage involved); unknown id → 404 via `notFound()`; opengraph-image route returns a real 1200×630 PNG (fetched and visually inspected — download/upload numbers, colored grade badge, and the "Test your connection →" CTA all render correctly). All test rows deleted after verification; `netgauge.results` is empty again.
+
+**Build gotcha, not a real bug:** an incremental `next build --turbopack` on top of a stale `.next/` from an earlier phase produced a build that compiled clean and printed the full route table, but silently wrote an incomplete `app-paths-manifest.json` (missing every route added this session) — `next start` against it 404'd on `/api/results` and `/r/[id]`. A clean `rm -rf .next && next build --turbopack` fixed it immediately and reproduced correctly twice. Worth an `rm -rf .next` if a freshly-built route ever 404s under `next start` but works under `next dev`.
+
+**Also killed a second stale leftover `node` process bound to port 3000** at the start of this session (returning 500 on every route) — same class of issue Phase 4's log already flagged; not this session's own doing.
+
+`tsc --noEmit`, `eslint` (0 new issues — the only lint error is pre-existing in `worker/src/index.ts`, unrelated to this phase), and `npm test` (31/31, unchanged) all clean. `next build --turbopack` succeeds with the new routes listed.
+
+**Next session: start Phase 6 (Contact & Privacy)** — Phase 7 (PWA/embed/rate limiting) and Phase 8 (SEO) are still blocked on it per the phase table's ordering note.
