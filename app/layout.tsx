@@ -30,10 +30,18 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased flex min-h-screen flex-col`}
       >
-        <header className="flex h-16 items-center border-b border-border px-4">
+        <header className="flex h-16 items-center justify-between border-b border-border px-4">
           <Link href="/" className="text-sm font-semibold tracking-tight text-foreground">
             netgauge
           </Link>
+          <nav className="flex items-center gap-6 text-sm text-muted-foreground">
+            <Link href="/about" className="hover:text-foreground">
+              About
+            </Link>
+            <Link href="/contact" className="hover:text-foreground">
+              Contact
+            </Link>
+          </nav>
         </header>
         <main className="flex-1">{children}</main>
         <footer className="flex flex-col items-center gap-3 border-t border-border py-6 text-sm text-muted-foreground">
