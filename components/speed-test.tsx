@@ -1,0 +1,111 @@
+"use client";
+
+import { useMemo } from "react";
+import { AlertTriangle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Gauge } from "@/components/gauge";
+import { LiveChart } from "@/components/live-chart";
+import { ResultCard } from "@/components/result-card";
+import { IspPanel } from "@/components/isp-panel";
+import { useSpeedTest, type ThroughputPoint } from "@/hooks/use-speed-test";
+import type { SpeedTestProgress } from "@/lib/speedtest/types";
+
+interface GaugeState {
+  value: number;
+  max: number;
+  displayValue: string;
+  unit: string;
+  label: string;
+  color: string;
+}
+
+// A gigabit line still needs to read as "mostly full" against a fixed cap,
+// while a 20 Mbps DSL line shouldn't look empty against a 1000 Mbps scale.
+function niceMax(mbps: number): number {
+  if (mbps <= 25) return 50;
+  if (mbps <= 100) return 200;
+  if (mbps <= 300) return 500;
+  return 1000;
+}
+
+function throughputGauge(mbps: number, label: "Download" | "Upload"): GaugeState {
+  return {
+    value: mbps,
+    max: niceMax(mbps),
+    displayValue: mbps >= 100 ? mbps.toFixed(0) : mbps.toFixed(1),
+    unit: "Mbps",
+    label,
+    color: label === "Download" ? "var(--chart-1)" : "var(--chart-2)",
+  };
+}
+
+function lastReading(series: ThroughputPoint[]): number {
+  return series.length > 0 ? series[series.length - 1].mbps : 0;
+}
+
+function statusText(phase: SpeedTestProgress["phase"] | undefined): string {
+  switch (phase) {
+    case "idle-latency":
+      return "Pinging";
+    case "download":
+    case "loaded-latency-down":
+      return "Testing download";
+    case "upload":
+    case "loaded-latency-up":
+      return "Testing upload";
+    default:
+      return "Measuring";
+  }
+}
+
+export default function SpeedTest() {
+  const { status, progress, result, error, downloadSeries, uploadSeries, start } = useSpeedTest();
+
+  const downloadGauge = useMemo<GaugeState>(() => {
+    const mbps = status === "done" && result ? result.download.mbps : lastReading(downloadSeries);
+    return throughputGauge(mbps, "Download");
+  }, [status, result, downloadSeries]);
+
+  const uploadGauge = useMemo<GaugeState>(() => {
+    const mbps = status === "done" && result ? result.upload.mbps : lastReading(uploadSeries);
+    return throughputGauge(mbps, "Upload");
+  }, [status, result, uploadSeries]);
+
+  return (
+    <div className="flex w-full flex-col items-center gap-8">
+      <div className="flex w-full items-start justify-center gap-6 sm:gap-10">
+        <Gauge {...downloadGauge} />
+        <Gauge {...uploadGauge} />
+      </div>
+
+      {status === "error" ? (
+        <div className="flex max-w-md flex-col items-center gap-3 text-center">
+          <AlertTriangle className="size-5" style={{ color: "var(--grade-bad)" }} strokeWidth={1.75} />
+          <p className="text-sm text-muted-foreground">{error ?? "The test could not complete."}</p>
+          <Button onClick={start} className="h-11 px-8 text-base">
+            Try again
+          </Button>
+        </div>
+      ) : status === "running" ? (
+        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+          {statusText(progress?.phase)}
+        </span>
+      ) : status === "done" ? (
+        <Button onClick={start} variant="outline" className="h-11 px-8 text-base">
+          Test again
+        </Button>
+      ) : (
+        <Button onClick={start} className="h-11 px-8 text-base">
+          Start test
+        </Button>
+      )}
+
+      <LiveChart downloadSeries={downloadSeries} uploadSeries={uploadSeries} />
+
+      {result && <ResultCard result={result} />}
+
+      <IspPanel />
+    </div>
+  );
+}

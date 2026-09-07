@@ -2,7 +2,7 @@
 
 Tracks progress across sessions. **Read this first when starting a new session**, then open the phase doc you are working on.
 
-Last updated: 2026-09-07 · Current phase: **Phase 4 — not started**
+Last updated: 2026-09-07 · Current phase: **Phase 5 — not started**
 
 ---
 
@@ -13,7 +13,7 @@ Last updated: 2026-09-07 · Current phase: **Phase 4 — not started**
 | 1 | Foundation | [docs/phase-1-foundation.md](docs/phase-1-foundation.md) | Done |
 | 2 | Cloudflare Worker (data plane) | [docs/phase-2-worker.md](docs/phase-2-worker.md) | Done |
 | 3 | Measurement engine | [docs/phase-3-engine.md](docs/phase-3-engine.md) | Done |
-| 4 | Test UI | [docs/phase-4-ui.md](docs/phase-4-ui.md) | Not started |
+| 4 | Test UI | [docs/phase-4-ui.md](docs/phase-4-ui.md) | Done |
 | 5 | Persistence & share links | [docs/phase-5-persistence.md](docs/phase-5-persistence.md) | Not started |
 | 6 | Contact & Privacy | [docs/phase-6-contact-privacy.md](docs/phase-6-contact-privacy.md) | Not started |
 | 7 | PWA, embed, rate limiting | [docs/phase-7-pwa-embed.md](docs/phase-7-pwa-embed.md) | Not started |
@@ -99,3 +99,23 @@ Key implementation choices not spelled out in the doc:
 **Phase 3 done.** GitHub remote now exists (`https://github.com/mzeeshanaltaf/NetGauge`) and this phase's work was pushed to it.
 
 **Next session: start Phase 4 (Test UI)** — this is what actually wires `lib/speedtest/worker.ts` into a `new Worker(...)` from a client component, per the "homepage is a split render" rule in `CLAUDE.md`.
+
+### 2026-09-07 — Phase 4 complete
+
+Built the full test UI per `docs/phase-4-ui.md`, run through the `/design-taste-frontend` skill to keep it off the generic-AI-tool aesthetic. Design read: a network diagnostic instrument for technically-minded users (not a marketing landing page), so `VISUAL_DENSITY` leans toward "daily app" for the results/ISP panel and stays airy around the hero. One accent color throughout (`--primary`/`--chart-1`, a blue, oklch hue 235) plus a second functional color (`--chart-2`, teal) used only to distinguish download vs upload; three semantic grade colors (`--grade-good/mid/bad`) used only for the bufferbloat badge and verdict check/x icons. Geist Mono on every numeric readout (gauge, result numbers, IP/ASN, latency) for an instrument feel. Native `<details>` FAQ (crawlable, zero JS) instead of a JS accordion.
+
+**The `ssr:false` boundary needed an extra layer not in the doc:** Next.js App Router refuses `ssr: false` on `next/dynamic` called directly inside a Server Component (`app/page.tsx`) — it throws at build time, not silently. Fixed by adding `components/speed-test-loader.tsx`, a `"use client"` wrapper that owns the `dynamic(..., {ssr:false})` call; `page.tsx` just imports and renders that. This is the CLAUDE.md guideline's own example pattern, just split into two files instead of one.
+
+**Web Worker wiring:** `hooks/use-speed-test.ts` owns the worker lifecycle (`new Worker(new URL("../lib/speedtest/worker.ts", import.meta.url))`, terminated on unmount and on re-start). It does NOT use the engine's own per-phase `elapsedMs` for the live chart's x-axis — that resets to 0 at the start of both `measureDownload` and `measureUpload`, which would overlap both series at x=0. Instead it stamps every progress event with `performance.now() - testStartRef.current` on the main thread, giving one continuous timeline across ping → download → upload. `LiveChart` renders download/upload as two `<Area>` series with independent `data` arrays sharing one numeric x-axis (a real Recharts v3 feature, avoids manually merging two time-indexed arrays).
+
+**CLS fix:** `components/speed-test-skeleton.tsx` mirrors the loaded widget's real box model (same `h-52 w-64` gauge circle, `h-11` button, `h-36` chart, same cluster padding in the ISP panel) so the skeleton-to-real-widget swap doesn't shift the page — verified by measuring the Start button's bounding box before and after the swap in a Playwright script (identical `{x,y,width,height}`).
+
+**Found and fixed a pre-existing Phase 1 bug, unrelated to this phase's own work but directly visible in it:** `app/globals.css` had `--font-sans: var(--font-sans);` (self-referential, invalid) inside `@theme inline`, and separately `html { @apply font-sans; }` — but next/font's actual `--font-geist-sans` variable is only defined on `<body>` (via `geistSans.variable`), which `<html>` (body's ancestor) can never see, since CSS custom properties only inherit downward. Net effect: the whole site was silently rendering in the browser's UA default serif font (visible in a screenshot, not in `tsc`/`eslint`/`next build`, all of which stayed clean throughout). Fixed by pointing `--font-sans` at `--font-geist-sans` and moving the `font-sans` class onto `<body>` itself; removed the now-dead `html { @apply font-sans; }` rule.
+
+**Verified:** `tsc --noEmit` and `eslint` clean; `npm test` still 31/31; `next build --turbopack` succeeds. Ran the doc's own checklist against a built (`next build && next start`) instance via a throwaway Playwright script (installed to the session scratchpad only, not the repo): `curl localhost:3000 | grep '<h1'` returns the heading; a full test runs end-to-end against the live Worker (real result: 18.6 Mbps down / 13.6 Mbps up / 20ms idle ping / grade C bufferbloat, +69ms added latency); zero console errors; no layout shift on the ssr:false swap; mobile viewport (375px) has no horizontal scroll and the Start button measures exactly 44px tall.
+
+**One environment note for future sessions:** found and killed a stale `node` process already bound to port 3000 at the start of this session, serving old placeholder content unrelated to the current app (likely a leftover from Phase 3's `npx serve` harness despite the Phase 3 log claiming it was stopped). Worth a quick `Get-NetTCPConnection -LocalPort 3000` check if `next start`/`next dev` ever refuses to bind.
+
+**Not done in this phase (by design, deferred to later phases per the phase table):** no dark-mode toggle (system `prefers-color-scheme` only — Phase 4's doc didn't ask for one); no persistence of results (Phase 5); no rate limiting on the widget (Phase 7).
+
+**Next session: start Phase 5 (Persistence & share links).**
