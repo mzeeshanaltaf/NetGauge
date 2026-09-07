@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://netgauge.zeeshanai.cloud";
+const TITLE = "How netgauge Measures Your Speed | Methodology";
+const DESCRIPTION =
+  "See how netgauge measures your connection: six parallel streams, warm-up discard, adaptive sizing, and why loaded latency reveals bufferbloat other tests miss.";
+
 export const metadata: Metadata = {
-  title: "About — netgauge",
-  description:
-    "Why netgauge exists, how it measures your connection, and the architecture behind it.",
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: `${SITE_URL}/about` },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: `${SITE_URL}/about`, type: "website" },
 };
 
 export default function AboutPage() {
@@ -43,6 +49,53 @@ export default function AboutPage() {
             (this page, your history, share links) runs separately on Vercel — the two are
             deliberately split so that measuring your connection never depends on, or
             competes with, the app serving this page.
+          </p>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold">Methodology</h2>
+          <p>
+            Most speed tests publish a number without explaining how they got it. Here is
+            exactly what netgauge does, in order:
+          </p>
+          <ul className="list-disc pl-5">
+            <li>
+              <strong>Idle latency</strong> is measured first, before any download or upload
+              traffic exists — 20 lightweight pings, reduced to a median (so a single slow
+              ping can&rsquo;t skew the result) plus jitter, the average change between
+              consecutive pings.
+            </li>
+            <li>
+              <strong>Download and upload</strong> each run <strong>6 parallel streams</strong>{" "}
+              for 8 seconds, after discarding the first 2 seconds of traffic. That warm-up
+              window exists because TCP ramps up gradually (&ldquo;slow start&rdquo;) and
+              your OS/browser haven&rsquo;t settled into steady state yet — measuring through
+              it would understate your real speed. netgauge tracks byte counts on every
+              chunk and interpolates the exact 2-second mark, rather than rounding to the
+              nearest sample.
+            </li>
+            <li>
+              <strong>Request size adapts to your connection.</strong> Each stream starts at
+              10 MB per request and doubles (up to 200 MB) whenever a request finishes
+              faster than 3 seconds — this keeps a gigabit line from being bottlenecked by
+              per-request overhead, without over-requesting on a slower one.
+            </li>
+            <li>
+              <strong>Loaded latency</strong> — the number behind the bufferbloat grade — is
+              pinged every 200 ms while download and upload are saturating your connection,
+              on a separate request that runs concurrently with the throughput streams.
+              netgauge takes the higher of the loaded-download and loaded-upload latency,
+              subtracts your idle latency, and grades the difference. See{" "}
+              <Link href="/guides/what-is-bufferbloat" className="text-primary underline underline-offset-4">
+                what bufferbloat is and why it matters
+              </Link>{" "}
+              for the full explanation.
+            </li>
+          </ul>
+          <p>
+            This is the same measurement approach used to compute the per-use-case verdicts
+            (streaming, calls, gaming, uploads) shown with every result — they read directly
+            off these numbers, not a separate heuristic.
           </p>
         </section>
 

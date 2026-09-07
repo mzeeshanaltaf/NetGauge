@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { GUIDES } from "@/lib/guides";
 
 // /embed is loaded in an <iframe> on other people's sites — it must render
 // chrome-less (no nav, no footer) and must not register the service worker,
@@ -42,7 +43,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
       </header>
       <main className="flex-1">{children}</main>
       <footer className="flex flex-col items-center gap-3 border-t border-border py-6 text-sm text-muted-foreground">
-        <div className="flex items-center justify-center gap-6">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
           <Link href="/about" className="hover:text-foreground">
             About
           </Link>
@@ -52,6 +53,11 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
           <Link href="/privacy" className="hover:text-foreground">
             Privacy
           </Link>
+          {GUIDES.map((guide) => (
+            <Link key={guide.slug} href={`/guides/${guide.slug}`} className="hover:text-foreground">
+              {guide.title}
+            </Link>
+          ))}
         </div>
         <p>
           Developed with 💖 by{" "}

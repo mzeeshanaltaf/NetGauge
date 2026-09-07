@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteChrome } from "@/components/site-chrome";
+import { WebApplicationJsonLd } from "@/components/json-ld";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -39,6 +40,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased flex min-h-screen flex-col`}
       >
+        <WebApplicationJsonLd />
         <SiteChrome>{children}</SiteChrome>
       </body>
     </html>

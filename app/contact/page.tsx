@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
 import { ContactForm } from "@/components/contact-form";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://netgauge.zeeshanai.cloud";
+const TITLE = "Contact netgauge - Feedback, Bugs & Deletion";
+const DESCRIPTION =
+  "Get in touch with netgauge to report a bug, suggest a feature, ask about your results, or request deletion of a shared test result. We read every message.";
+
 export const metadata: Metadata = {
-  title: "Contact & Feedback — netgauge",
-  description: "Share feedback, report a bug, suggest a feature, or request deletion of your data.",
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: `${SITE_URL}/contact` },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: `${SITE_URL}/contact`, type: "website" },
 };
 
 // Short error codes set by the API route's redirect (?error=...) mapped to

@@ -2,7 +2,7 @@
 
 Tracks progress across sessions. **Read this first when starting a new session**, then open the phase doc you are working on.
 
-Last updated: 2026-09-07 · Current phase: **Phase 8 — not started**
+Last updated: 2026-09-07 · Current phase: **Phase 9 — not started**
 
 ---
 
@@ -17,7 +17,7 @@ Last updated: 2026-09-07 · Current phase: **Phase 8 — not started**
 | 5 | Persistence & share links | [docs/phase-5-persistence.md](docs/phase-5-persistence.md) | Done |
 | 6 | Contact & Privacy | [docs/phase-6-contact-privacy.md](docs/phase-6-contact-privacy.md) | Done |
 | 7 | PWA, embed, rate limiting | [docs/phase-7-pwa-embed.md](docs/phase-7-pwa-embed.md) | Done |
-| 8 | SEO | [docs/phase-8-seo.md](docs/phase-8-seo.md) | Not started |
+| 8 | SEO | [docs/phase-8-seo.md](docs/phase-8-seo.md) | Done |
 | 9 | Deploy & domain | [docs/phase-9-deploy.md](docs/phase-9-deploy.md) | Not started |
 
 Status values: `Not started` · `In progress` · `Blocked` · `Done`
@@ -177,3 +177,23 @@ Added `describeFailure()` to `lib/speedtest/index.ts` so a 429 from the Worker s
 **Not done in this phase, out of scope per the doc:** no Lighthouse CLI run (verified the underlying installability criteria — manifest, icons, SW, offline shell — directly instead, since a Lighthouse binary wasn't available in this environment); no changes to `lib/ratelimit.ts`/`lib/rate-limit.ts` (Vercel-side limiting) since Phases 5 and 6 already built those ahead of this phase's own schedule and the doc's "Vercel `/api/results`, `/api/contact`" row was already satisfied.
 
 **Next session: start Phase 8 (SEO).**
+
+### 2026-09-07 — Phase 8 complete
+
+Built `app/robots.ts` (allows `/`, disallows `/api/`, `/embed`, `/r/`, references `/sitemap.xml` absolutely) and `app/sitemap.ts` (static pages only: `/`, `/about`, `/contact`, `/privacy`, plus each `/guides/[slug]` — no result URLs, matching the indexation decision in section 1 of the doc). `/r/[id]`'s `noindex, follow` + canonical already existed from Phase 5 and needed no changes.
+
+**Content: three new guide pages** under `app/guides/{what-is-bufferbloat,good-internet-speed,speed-slower-than-advertised}/page.tsx`, each targeting exactly one keyword per the doc's table, with unique metadata, a self-referencing canonical, a `BreadcrumbJsonLd` (Home → page — collapsed to 2 levels since there's no `/guides` index route to point an intermediate crumb at), and cross-links to each other, to `/about`, and a "Test your connection →" CTA back to `/`. `lib/guides.ts` holds the slug/title list as a single source of truth, consumed by the sitemap, the homepage's new "Guides" section, and the footer — this is what keeps `/guides/*` from being orphan pages (previously nothing on the site linked to them, since they didn't exist).
+
+**`/about` became the methodology page** (E-E-A-T asset per the doc) — added a "Methodology" section with the real numbers pulled from `lib/speedtest/{index,download,grade}.ts` rather than restating them generically: 20-sample median idle latency, 6 parallel streams, exact-interpolation 2s warm-up discard, adaptive request sizing (10 MB → 200 MB, doubling under a 3s target), and the loaded-latency-minus-idle-latency bufferbloat formula. The bufferbloat guide's grade table (A+ through F) is read directly from `grade.ts`'s `THRESHOLDS` array so it can't drift from the actual grading code.
+
+**Metadata rewritten on every indexable page** (home, about, contact, privacy, all three guides) to hit the doc's length rules — titles ≤60 chars, descriptions 150–160 — verified against the **rendered** HTML (not the source constants) with a throwaway Node script that fetched each route from a built `next start` instance and regex-matched `<title>`/`<meta name="description">`/`<link rel="canonical">`; confirmed all seven pages pass and all titles/descriptions are unique. Every indexable page also got `alternates.canonical` and an `openGraph` block.
+
+**Structured data:** `WebApplicationJsonLd` renders once in the root layout (site-wide, since the tool applies everywhere); `FaqJsonLd` renders on the homepage from the same `FAQ` array already driving the visible `<details>` accordion, so the two can't go out of sync. Both verified server-rendered (not client-injected) via `curl` against the built app — confirmed exactly two `<script type="application/ld+json">` tags on `/` with the expected `@type`s.
+
+**OG images:** factored the existing `app/r/[id]/opengraph-image.tsx` visual language into `lib/og-image.tsx` (`renderStaticOgImage(title, subtitle, cta)`), then added a same-styled `opengraph-image.tsx` (next/og `ImageResponse`, no `@vercel/og` package, consistent with Phase 5's choice) to `/`, `/about`, `/contact`, `/privacy`, and each guide — all with a real headline, subtitle, and the "Test your connection →" CTA the doc requires, plus a descriptive `alt`. Verified live: all seven return real 1200×630 PNGs (`content-type: image/png`), and `og:image:alt`/`og:image:width`/`og:image:height` all render correctly in `<head>`.
+
+**Verified against a clean production build**, not `next dev`: `tsc --noEmit` and `eslint` both clean; `npm test` still 31/31 unchanged; `rm -rf .next && next build --turbopack` succeeds with all 26 routes listed including every new `opengraph-image` route. Ran the doc's own verification checklist against `next start`: `/robots.txt` and `/sitemap.xml` match the doc exactly; `/embed` still carries `noindex, follow` (Phase 5/7 behavior, unaffected); every indexable page has exactly one `<h1>` and a correct self-canonical; homepage FAQ and H1 text are present in raw `curl` output (Phase 4's server/client split still intact).
+
+**Not done in this phase, deferred to Phase 9 since the app isn't deployed yet:** Google's Rich Results Test validation (needs a public URL, not `curl`, per the doc's own warning) and the PageSpeed Insights Core Web Vitals check. Nothing in this phase touched rendering, hydration, or the gauge/chart components, so the CWV posture Phase 4/7 already established should carry over unchanged — worth confirming once deployed rather than re-verifying blind.
+
+**Next session: start Phase 9 (Deploy & domain)** — once live, circle back and run the two doc checks above (Rich Results Test on `/` and one guide; PageSpeed Insights on the homepage) against the real deployed URL.

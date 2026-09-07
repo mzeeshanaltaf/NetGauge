@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://netgauge.zeeshanai.cloud";
+const TITLE = "netgauge Privacy Policy - What We Store";
+const DESCRIPTION =
+  "Read what netgauge stores when you run a speed test, why your raw IP is never saved, what stays only in your browser, and how to request deletion of your data.";
+
 export const metadata: Metadata = {
-  title: "Privacy Policy — netgauge",
-  description: "What netgauge stores, what it doesn't, and how to request deletion.",
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: `${SITE_URL}/privacy` },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: `${SITE_URL}/privacy`, type: "website" },
 };
 
 export default function PrivacyPage() {

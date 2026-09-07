@@ -1,4 +1,24 @@
+import type { Metadata } from "next";
+import Link from "next/link";
 import { SpeedTestLoader } from "@/components/speed-test-loader";
+import { FaqJsonLd } from "@/components/json-ld";
+import { GUIDES } from "@/lib/guides";
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://netgauge.zeeshanai.cloud";
+
+export const metadata: Metadata = {
+  title: "Speed Test: Download, Upload & Bufferbloat | netgauge",
+  description:
+    "Measure download, upload, latency, jitter, and bufferbloat with instant per-use-case verdicts for gaming, video calls, and uploads. Free, no signup required.",
+  alternates: { canonical: SITE_URL },
+  openGraph: {
+    title: "Speed Test: Download, Upload & Bufferbloat | netgauge",
+    description:
+      "Measure download, upload, latency, jitter, and bufferbloat with instant per-use-case verdicts for gaming, video calls, and uploads.",
+    url: SITE_URL,
+    type: "website",
+  },
+};
 
 const FAQ = [
   {
@@ -26,6 +46,7 @@ const FAQ = [
 export default function Home() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col items-center px-4 pt-16 pb-24">
+      <FaqJsonLd items={FAQ} />
       <div className="flex max-w-xl flex-col items-center gap-3 text-center">
         <h1 className="text-4xl font-semibold tracking-tight text-balance md:text-5xl">
           Speed, latency, and bufferbloat in one test.
@@ -52,6 +73,22 @@ export default function Home() {
             </details>
           ))}
         </div>
+      </section>
+
+      <section className="mt-16 w-full max-w-xl">
+        <h2 className="text-lg font-semibold text-foreground">Guides</h2>
+        <ul className="mt-4 flex flex-col gap-2 text-sm">
+          {GUIDES.map((guide) => (
+            <li key={guide.slug}>
+              <Link
+                href={`/guides/${guide.slug}`}
+                className="text-primary underline underline-offset-4 hover:text-primary/80"
+              >
+                {guide.title}
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );
