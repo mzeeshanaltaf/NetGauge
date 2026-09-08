@@ -2,7 +2,7 @@
 
 Tracks progress across sessions. **Read this first when starting a new session**, then open the phase doc you are working on.
 
-Last updated: 2026-09-07 · Current phase: **Phase 9 — not started**
+Last updated: 2026-09-08 · Current phase: **Phase 9 — in progress**
 
 ---
 
@@ -18,7 +18,7 @@ Last updated: 2026-09-07 · Current phase: **Phase 9 — not started**
 | 6 | Contact & Privacy | [docs/phase-6-contact-privacy.md](docs/phase-6-contact-privacy.md) | Done |
 | 7 | PWA, embed, rate limiting | [docs/phase-7-pwa-embed.md](docs/phase-7-pwa-embed.md) | Done |
 | 8 | SEO | [docs/phase-8-seo.md](docs/phase-8-seo.md) | Done |
-| 9 | Deploy & domain | [docs/phase-9-deploy.md](docs/phase-9-deploy.md) | Not started |
+| 9 | Deploy & domain | [docs/phase-9-deploy.md](docs/phase-9-deploy.md) | In progress |
 
 Status values: `Not started` · `In progress` · `Blocked` · `Done`
 
@@ -33,9 +33,9 @@ Fill these in as phases complete — later phases need them.
 | Value | Set in | Current |
 |---|---|---|
 | Worker URL (`NEXT_PUBLIC_WORKER_URL`) | Phase 2 | `https://netgauge-worker.zeeshanai.workers.dev` |
-| Vercel DNS target (`<hash>.vercel-dns-017.com`) | Phase 9 | _not yet_ |
+| Vercel DNS target (`<hash>.vercel-dns-017.com`) | Phase 9 | `16ec4467c93f3de6.vercel-dns-017.com` |
 | GitHub repo | Phase 1 | `https://github.com/mzeeshanaltaf/NetGauge` |
-| Vercel project | Phase 9 | _not yet_ |
+| Vercel project | Phase 9 | `netgauge` (team `zeeshans-projects-4841e9ae`) |
 
 ---
 
@@ -197,3 +197,48 @@ Built `app/robots.ts` (allows `/`, disallows `/api/`, `/embed`, `/r/`, reference
 **Not done in this phase, deferred to Phase 9 since the app isn't deployed yet:** Google's Rich Results Test validation (needs a public URL, not `curl`, per the doc's own warning) and the PageSpeed Insights Core Web Vitals check. Nothing in this phase touched rendering, hydration, or the gauge/chart components, so the CWV posture Phase 4/7 already established should carry over unchanged — worth confirming once deployed rather than re-verifying blind.
 
 **Next session: start Phase 9 (Deploy & domain)** — once live, circle back and run the two doc checks above (Rich Results Test on `/` and one guide; PageSpeed Insights on the homepage) against the real deployed URL.
+
+### 2026-09-07 — Phase 9 mostly complete (deploy + domain live; Search Console still manual)
+
+GitHub push was already done (repo existed and was up to date from earlier phases). `npx vercel link --yes --project netgauge` created the `netgauge` project under `zeeshans-projects-4841e9ae` and auto-connected the GitHub repo — no dashboard import step needed. This also appended `VERCEL_OIDC_TOKEN` to `.env.local` and added `.vercel`/`.env*` to `.gitignore` (both harmless, `.env*` was already covered).
+
+All 8 vars from `.env.local` added to the Vercel **production** environment via `vercel env add <NAME> production` (piped, non-interactive). `vercel env ls` displays `NEXT_PUBLIC_*` vars as an obfuscated blob in the table view — that's just the CLI's list-view rendering, not a corrupted value; confirmed correct via `vercel env pull` into a scratch file.
+
+First production deploy via `vercel deploy --prod --yes` succeeded first try — build completed in 57s, all 26 routes present. **Both the prod deploy and the DNS write were auto-blocked by the auto-mode classifier pending explicit confirmation** (deploying and writing to shared DNS both count as visible/hard-to-reverse); asked the user once via AskUserQuestion covering both, got the go-ahead, then proceeded.
+
+**Domain wiring matched the doc's predicted pattern exactly:** `vercel domains add netgauge.zeeshanai.cloud netgauge` attached the domain, `vercel domains verify netgauge.zeeshanai.cloud` (not `inspect` — `inspect` only prints stale apex-level nameserver info and never shows the per-project CNAME target) revealed the real target `16ec4467c93f3de6.vercel-dns-017.com`. Created via `mcp__hostinger-dns__DNS_updateDNSRecordsV1` (non-overwrite, since no `netgauge` record existed yet). DNS resolved within seconds and SSL was issued fast enough that a direct `curl` returned `200` before the background monitor's own polling loop caught up (its `curl` kept reporting `000` even after the site was confirmably live — likely a resolver/timing quirk in that loop, not a real problem; verified independently and moved on).
+
+**Worker CORS allowlist needed no change** — Phase 2 already hardcoded `https://netgauge.zeeshanai.cloud` into `STATIC_ALLOWED_ORIGINS`, and `NEXT_PUBLIC_SITE_URL` was already the production URL from the start (set in `.env.local` since Phase 1 planning). Confirmed live with `curl -H "Origin: https://netgauge.zeeshanai.cloud"` against the Worker's `/download` endpoint (echoes the allow-origin header, `content-encoding: identity`, `Timing-Allow-Origin: *` all present) and a disallowed-origin request (no allow-origin header at all).
+
+**Verified against the live production site, not mocks:** a real Playwright run against `https://netgauge.zeeshanai.cloud` (throwaway script + scratch npm project, Chromium via `npx playwright install chromium`) clicked Start and completed a full test — 19.1 Mbps down / 16.2 Mbps up, zero console errors — proving hydration, the Worker CORS path, and the full measurement pipeline all work end-to-end in production (this is the check the doc calls out as "the CORS check... if it hangs at 0, step 3 was missed"). Submitted a real payload to `/api/results` on production (got back a real nanoid), confirmed `/r/<id>` renders with correct `noindex, follow` + canonical and the `opengraph-image` route returns a real PNG, then deleted the row directly against the VPS Postgres via a throwaway `tsx` script (Prisma 7's generated client is TS-only, no compiled JS — needed `tsx`, not plain `node`, to run a standalone cleanup script). Contact form: real POST to `/api/contact` on production reached n8n and returned 200. VPS load average before (`1.00`) and after (`0.61`) the test traffic was unchanged/normal, and disk usage is 41% (the weekly Docker cleanup cron from `~/.claude/CLAUDE.md` is keeping it down from the 78% incident).
+
+**Not done — needs the user, no MCP/CLI path exists for either:** (1) Google Search Console verification for the `netgauge.zeeshanai.cloud` property (separate property from the root domain, per the doc) — needs a Google account in a browser; once the user has a DNS TXT value or wants an HTML verification file served from `public/`, either can be wired up quickly. (2) PageSpeed Insights Core Web Vitals check — the anonymous PSI API returned `429` (no API key available in this environment); run manually at pagespeed.web.dev against `https://netgauge.zeeshanai.cloud`, or supply a PSI API key for the next session to check programmatically.
+
+**Next session (or user, right now): finish Phase 9** — verify the Search Console property and submit `/sitemap.xml`, and record the PageSpeed Insights LCP/INP/CLS numbers. Once both are done, flip Phase 9 to Done in the table above.
+
+### 2026-09-08 — README, dark theme, llms.txt, PageSpeed follow-ups
+
+Not a numbered phase — ad-hoc requests against the live site.
+
+**Dark theme toggle** via `next-themes` (`components/theme-provider.tsx` wraps the root layout, `attribute="class"` matches the `.dark`-class variables shadcn's init already put in `globals.css` back in Phase 1 — no CSS changes needed). `components/theme-toggle.tsx` renders a sun/moon icon button in `SiteChrome`'s header; it delays reading `resolvedTheme` until after mount (`next-themes` only knows the real theme client-side) so the icon can't mismatch between server and client paint. `suppressHydrationWarning` added to `<html>` since `next-themes`' inline script sets the class before React hydrates, which is expected and not a real mismatch. Verified with a throwaway Playwright script (scratch dir, not committed): toggle flips `<html class>` between `light`/`dark`, persists across a reload, zero console errors.
+
+**PageSpeed Insights findings addressed** (user ran pagespeed.web.dev against production; both desktop 99 and mobile 91 performance, screenshots reviewed):
+- Contrast failure on the Start button and every `text-primary` link — measured `--primary` (`oklch(0.55 0.18 235)`) against white at exactly 4.43:1, just under the 4.5:1 AA floor. Darkened to `oklch(0.46 0.18 235)` (6.4:1) in `globals.css`, and carried the same value into `--ring`/`--chart-1` since those three were already kept in sync. `manifest.ts` theme_color and `layout.tsx`'s viewport `themeColor` updated to match (`#0060ac`); the latter is now a light/dark media-query pair instead of one fixed color, since dark mode didn't exist when the original color was picked.
+- "Heading elements are not in a sequentially-descending order" — the widget's first heading after each page's `<h1>` was an `<h3>` (`ResultCard`'s "Good for", `IspPanel`'s cluster titles), skipping `<h2>`. Both changed to `<h2>`; `History`'s "Your history" `<h3>` was already correctly nested under those and needed no change.
+- "Preconnect candidate" flagged the Worker origin for an estimated 300ms LCP saving — added `<link rel="preconnect">` to `NEXT_PUBLIC_WORKER_URL` in the root layout's `<head>`.
+- "Legacy JavaScript" (polyfills for `Array.prototype.at/flat/flatMap`, `Object.fromEntries/hasOwn`, `String.prototype.trimStart/trimEnd`) — there was no `browserslist` field, so Next's default target is conservative. Added one targeting evergreen browsers (`chrome/edge/firefox >= 100`, `safari >= 15`) to `package.json`; shared First Load JS dropped slightly (151 kB → 150 kB) post-build.
+- Not touched: "Reduce unused JavaScript" (~78 KiB in the main chunk) is React/Recharts/Next runtime itself, not something a config change fixes without a deeper bundle-splitting effort — flagging for a future session rather than guessing at a fix now.
+
+**`public/llms.txt`** added per the [llmstxt.org](https://llmstxt.org) convention — site summary plus links to `/about`, `/privacy`, and the three guide pages; served automatically since anything in `public/` is static at the root.
+
+**`README.md`** rewritten with a Features list, tech stack, test/lint commands, and the Worker's separate deploy step — previously just a two-command quickstart.
+
+**Search Console DNS TXT question (asked, not actioned):** answered inline, no code change — Search Console's DNS TXT value is only ever shown inside its own "Ownership verification" UI (Settings → Ownership verification → Domain name provider), not retrievable via any API/MCP tool available in this environment. Once the user copies that value, the Hostinger DNS MCP can add the TXT record directly.
+
+**Verified:** `tsc --noEmit`, `eslint`, and a clean `rm -rf .next && npm run build` all pass; `npm test` unaffected (no logic changed, only CSS variables/markup/config).
+
+**Next session:** still needs PageSpeed Insights re-run to confirm the accessibility/perf fixes landed, plus, if it's ever worth the effort, a real look at the ~78 KiB "reduce unused JavaScript" chunk.
+
+**Search Console verification, resolved without any new DNS write.** The user saw "You are a verified owner / Domain name provider: Successfully verified" on the `netgauge.zeeshanai.cloud` property and asked whether a TXT record had been added. Checked the live zone (`mcp__hostinger-dns__DNS_getDNSRecordsV1` on `zeeshanai.cloud`): the apex (`@`) already carries `google-site-verification=YN2K3FRzCB4YeGAOs9robe4qgnpz9WUx3cup2TuJGbA`, added previously when a Domain-type property was verified for the root domain (unrelated to netgauge). A Google Domain property's DNS verification automatically covers every subdomain, so `netgauge.zeeshanai.cloud` inherited it for free — no new record was or needed to be written. (For contrast, `n8n.zeeshanai.cloud` carries its own separate `google-site-verification` TXT, from an earlier individual URL-prefix verification predating the domain-level one.)
+
+**Phase 9's only remaining open item is now the PageSpeed Insights re-check** — told the user to submit `/sitemap.xml` under Indexing → Sitemaps in Search Console next.

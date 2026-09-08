@@ -1,0 +1,18 @@
+# netgauge
+
+> Free browser-based internet speed test measuring download, upload, idle latency, jitter, loaded latency, and bufferbloat, with plain-language verdicts for gaming, video calls, and uploads.
+
+netgauge runs from Cloudflare's 300+ edge locations (not a single data center), so results reflect the user's own line rather than the distance to a fixed server. Alongside raw throughput it measures how latency behaves while the connection is saturated (bufferbloat) and grades it A+ through F. No signup is required; a completed test can optionally be saved and shared via a short link. IP addresses are never stored — only a salted one-way hash.
+
+## Docs
+
+- [About & methodology](https://netgauge.zeeshanai.cloud/about): how the test works — sample sizes, warm-up discard, adaptive stream sizing, and the bufferbloat formula.
+- [Privacy policy](https://netgauge.zeeshanai.cloud/privacy): exactly what data is collected, by which processor, and for how long.
+- [What is bufferbloat?](https://netgauge.zeeshanai.cloud/guides/what-is-bufferbloat): explains loaded-latency spikes and how to fix them.
+- [What is a good internet speed?](https://netgauge.zeeshanai.cloud/guides/good-internet-speed): benchmark speeds by use case (streaming, gaming, video calls, large households).
+- [Why is my internet slower than advertised?](https://netgauge.zeeshanai.cloud/guides/speed-slower-than-advertised): common causes of the gap between plan speed and measured speed.
+
+## Optional
+
+- [Embeddable widget](https://netgauge.zeeshanai.cloud/embed): a chrome-less version of the test suitable for `<iframe>` embedding on third-party sites.
+- [Contact](https://netgauge.zeeshanai.cloud/contact): report a bug or ask a question.

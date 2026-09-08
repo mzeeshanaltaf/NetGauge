@@ -97,7 +97,7 @@ export function IspPanel({ meta, metaFailed, geo }: IspPanelProps) {
 function Cluster({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="px-5 py-4">
-      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h3>
+      <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h2>
       <div className="mt-2.5 grid grid-cols-2 gap-x-4 gap-y-2.5">{children}</div>
     </div>
   );

@@ -86,7 +86,7 @@ export function ResultCard({ result }: ResultCardProps) {
       </div>
 
       <div className="mt-6">
-        <h3 className="text-sm font-medium text-foreground">Good for</h3>
+        <h2 className="text-sm font-medium text-foreground">Good for</h2>
         <ul className="mt-3 divide-y divide-border rounded-lg border border-border">
           {verdicts.map((verdict) => (
             <li key={verdict.id} className="flex items-center gap-3 px-4 py-2.5">

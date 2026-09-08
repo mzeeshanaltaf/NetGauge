@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { GUIDES } from "@/lib/guides";
 import { Logo } from "@/components/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 // /embed is loaded in an <iframe> on other people's sites — it must render
 // chrome-less (no nav, no footer) and must not register the service worker,
@@ -38,6 +39,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
           <Link href="/contact" className="hover:text-foreground">
             Contact
           </Link>
+          <ThemeToggle />
         </nav>
       </header>
       <main className="flex-1">{children}</main>
