@@ -1,15 +1,27 @@
 "use client";
 
 import { useMemo } from "react";
+import dynamic from "next/dynamic";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Gauge } from "@/components/gauge";
-import { LiveChart } from "@/components/live-chart";
 import { ResultCard } from "@/components/result-card";
 import { useSpeedTest, type ThroughputPoint } from "@/hooks/use-speed-test";
 import type { SpeedTestProgress } from "@/lib/speedtest/types";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+
+// See speed-test.tsx: recharts is left unmounted (not just code-split) until
+// a test has actually produced data, so a fresh load never fetches it.
+const LiveChart = dynamic(() => import("@/components/live-chart").then((m) => m.LiveChart), { ssr: false });
+
+function ChartPlaceholder() {
+  return (
+    <div className="flex h-36 w-full max-w-2xl items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
+      Throughput will plot here once the test starts.
+    </div>
+  );
+}
 
 interface GaugeState {
   value: number;
@@ -103,7 +115,11 @@ export default function EmbedWidget() {
         </Button>
       )}
 
-      <LiveChart downloadSeries={downloadSeries} uploadSeries={uploadSeries} />
+      {status === "idle" ? (
+        <ChartPlaceholder />
+      ) : (
+        <LiveChart downloadSeries={downloadSeries} uploadSeries={uploadSeries} />
+      )}
 
       {result && <ResultCard result={result} />}
 

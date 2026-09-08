@@ -1,19 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { AlertTriangle, Check, Copy, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Gauge } from "@/components/gauge";
-import { LiveChart } from "@/components/live-chart";
 import { ResultCard } from "@/components/result-card";
 import { IspPanel } from "@/components/isp-panel";
-import { History } from "@/components/history";
 import { useSpeedTest, type ThroughputPoint } from "@/hooks/use-speed-test";
 import { useNetworkMeta } from "@/hooks/use-network-meta";
 import { useResultSubmission } from "@/hooks/use-result-submission";
+import { loadHistory, subscribeToHistory } from "@/lib/history";
 import type { SpeedTestProgress } from "@/lib/speedtest/types";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+
+// recharts is a large dependency; both charts render nothing meaningful until
+// there's data (no series yet, or no saved history), so they're not just
+// code-split but also left unmounted — and therefore unfetched — until that
+// data actually exists. This is what a fresh, no-history Lighthouse run sees.
+const LiveChart = dynamic(() => import("@/components/live-chart").then((m) => m.LiveChart), { ssr: false });
+const History = dynamic(() => import("@/components/history").then((m) => m.History), { ssr: false });
+
+function ChartPlaceholder() {
+  return (
+    <div className="flex h-36 w-full max-w-2xl items-center justify-center rounded-lg border border-dashed border-border text-xs text-muted-foreground">
+      Throughput will plot here once the test starts.
+    </div>
+  );
+}
 
 function ShareLink({ shareId, submitting }: { shareId: string | null; submitting: boolean }) {
   const [copied, setCopied] = useState(false);
@@ -92,6 +107,13 @@ export default function SpeedTest() {
   const { status, progress, result, error, downloadSeries, uploadSeries, start } = useSpeedTest();
   const { meta, metaFailed, geo } = useNetworkMeta();
   const { shareId, submitting } = useResultSubmission(result, meta, geo);
+  const [hasHistory, setHasHistory] = useState(false);
+
+  useEffect(() => {
+    const check = () => setHasHistory(loadHistory().length > 0);
+    check();
+    return subscribeToHistory(check);
+  }, []);
 
   const downloadGauge = useMemo<GaugeState>(() => {
     const mbps = status === "done" && result ? result.download.mbps : lastReading(downloadSeries);
@@ -133,7 +155,11 @@ export default function SpeedTest() {
         </Button>
       )}
 
-      <LiveChart downloadSeries={downloadSeries} uploadSeries={uploadSeries} />
+      {status === "idle" ? (
+        <ChartPlaceholder />
+      ) : (
+        <LiveChart downloadSeries={downloadSeries} uploadSeries={uploadSeries} />
+      )}
 
       {result && (
         <>
@@ -144,7 +170,7 @@ export default function SpeedTest() {
 
       <IspPanel meta={meta} metaFailed={metaFailed} geo={geo} />
 
-      <History />
+      {hasHistory && <History />}
     </div>
   );
 }
