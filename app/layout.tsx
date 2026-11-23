@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Script from "next/script";
 import { SiteChrome } from "@/components/site-chrome";
 import { ThemeProvider } from "@/components/theme-provider";
 import { WebApplicationJsonLd } from "@/components/json-ld";
 import "./globals.css";
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL;
+const UMAMI_SCRIPT_URL = process.env.NEXT_PUBLIC_UMAMI_SCRIPT_URL;
+const UMAMI_WEBSITE_ID = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,6 +58,12 @@ export default function RootLayout({
           <WebApplicationJsonLd />
           <SiteChrome>{children}</SiteChrome>
         </ThemeProvider>
+        {/* Self-hosted, cookieless Umami page-view analytics. Both vars are
+            build-time (NEXT_PUBLIC_*), so the tag is absent unless they were
+            set when the app was built. */}
+        {UMAMI_SCRIPT_URL && UMAMI_WEBSITE_ID && (
+          <Script src={UMAMI_SCRIPT_URL} data-website-id={UMAMI_WEBSITE_ID} strategy="afterInteractive" />
+        )}
       </body>
     </html>
   );

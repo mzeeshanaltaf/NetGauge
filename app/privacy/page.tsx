@@ -80,6 +80,10 @@ export default function PrivacyPage() {
               submissions and abusive requests.
             </li>
             <li>
+              <strong>Self-hosted Umami</strong> — counts anonymous page views. It sets no
+              cookies, stores no IP addresses, and runs on our own server.
+            </li>
+            <li>
               <strong>Self-hosted n8n</strong> — receives contact form submissions and
               routes them to us; it runs on infrastructure we control, not a third-party
               SaaS inbox.
