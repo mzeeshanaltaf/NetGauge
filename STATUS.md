@@ -263,6 +263,6 @@ Not a numbered phase — ad-hoc requests against the live site.
 **Rollback:** the Vercel project `netgauge` is still deployed (without a database). Reverting the DNS record to the CNAME above restores the old routing.
 
 **Open items:**
-1. Deploy the Worker (`cd worker && npx wrangler deploy`), then confirm `/meta` returns `city`/`country`. The old note that the free tier doesn't expose them was never tested.
-2. Add repo secrets `COOLIFY_API_TOKEN` (the deploy-scoped token in `.env.local`) and `COOLIFY_APP_UUID` = `sip1y4bo6jywv6aalqvyqn5g`, then commit `.github/workflows/deploy.yml` (in the working tree, not yet committed) — the push is the test.
+1. ~~Deploy the Worker~~ — done by the user the same day. `/meta` now returns `city`/`country`/`region`/lat/lon on the **free** tier (checked: Lahore / Punjab / PK), so the Phase 2 note claiming otherwise was wrong.
+2. ~~Deploy on push~~ — done: repo secrets `COOLIFY_API_TOKEN` (deploy-scoped) and `COOLIFY_APP_UUID` set, `.github/workflows/deploy.yml` committed.
 3. Once happy, remove the Vercel project (or at least its Git integration — it still builds on every push).
