@@ -67,12 +67,13 @@ export default function PrivacyPage() {
           <p>The following third parties handle data as part of running this service:</p>
           <ul className="list-disc pl-5">
             <li>
-              <strong>Vercel</strong> — hosts the site and application, and supplies the
-              coarse geo headers (city/country) used to enrich results.
+              <strong>Hostinger</strong> — provides the server that hosts the site,
+              application and results database; we run and administer it ourselves.
             </li>
             <li>
               <strong>Cloudflare</strong> — carries the actual test traffic (download/upload
-              bytes) from its edge network, and supplies ASN/ISP information.
+              bytes) from its edge network, and supplies ASN/ISP and coarse location
+              (city/country) information.
             </li>
             <li>
               <strong>Upstash</strong> — provides the Redis store used to rate-limit

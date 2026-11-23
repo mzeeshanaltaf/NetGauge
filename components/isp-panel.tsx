@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { GeoResponse } from "@/app/api/geo/route";
+import type { GeoResponse } from "@/hooks/use-network-meta";
 import type { WorkerMeta } from "@/hooks/use-network-meta";
 
 interface NetworkInformation {

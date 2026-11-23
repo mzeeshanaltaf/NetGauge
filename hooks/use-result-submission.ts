@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { nanoid } from "nanoid";
 import { saveHistoryEntry } from "@/lib/history";
-import type { GeoResponse } from "@/app/api/geo/route";
+import type { GeoResponse } from "@/hooks/use-network-meta";
 import type { WorkerMeta } from "@/hooks/use-network-meta";
 import type { SpeedTestResult } from "@/lib/speedtest/types";
 

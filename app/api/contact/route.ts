@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientIp } from "@/lib/client-ip";
 import { checkContactRateLimit } from "@/lib/rate-limit";
 
 type Fields = {
@@ -33,11 +34,6 @@ async function parseBody(req: NextRequest): Promise<Fields> {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function clientIp(req: NextRequest): string {
-  const fwd = req.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0].trim();
-  return req.headers.get("x-real-ip") ?? "anonymous";
-}
 
 export async function POST(req: NextRequest) {
   // Native HTML form posts (the no-JS fallback) arrive url-encoded and expect a
@@ -76,7 +72,7 @@ export async function POST(req: NextRequest) {
     return fail("length", 400, "Message must be 5000 characters or fewer.");
   }
 
-  const { success: underLimit } = await checkContactRateLimit(clientIp(req));
+  const { success: underLimit } = await checkContactRateLimit(clientIp(req.headers) ?? "anonymous");
   if (!underLimit) {
     return fail("rate", 429, "Too many submissions. Please try again later.");
   }

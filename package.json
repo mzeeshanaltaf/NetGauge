@@ -16,7 +16,6 @@
     "@prisma/client": "^7.10.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.4",
-    "@vercel/functions": "^3.9.5",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.6",
     "dotenv": "^17.4.2",

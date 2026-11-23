@@ -1,6 +1,6 @@
-import { ipAddress } from "@vercel/functions";
 import { nanoid } from "nanoid";
 import { NextRequest, NextResponse } from "next/server";
+import { clientIp } from "@/lib/client-ip";
 import { db } from "@/lib/db";
 import { hashIp } from "@/lib/hash";
 import { resultsRatelimit } from "@/lib/ratelimit";
@@ -65,7 +65,7 @@ function parseSubmission(body: unknown): ResultSubmission | null {
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
-  const ip = ipAddress(request) ?? "unknown";
+  const ip = clientIp(request.headers) ?? "unknown";
 
   const { success } = await resultsRatelimit.limit(ip);
   if (!success) {

@@ -46,7 +46,7 @@ export default function AboutPage() {
             locations, not on the server hosting this site. That means the bytes travel a
             short hop to whichever edge is closest to you, so the result reflects your own
             line rather than the distance to a single, distant data center. The app itself
-            (this page, your history, share links) runs separately on Vercel — the two are
+            (this page, your history, share links) runs separately on its own server — the two are
             deliberately split so that measuring your connection never depends on, or
             competes with, the app serving this page.
           </p>

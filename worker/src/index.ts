@@ -148,6 +148,13 @@ function handleMeta(request: Request): Response {
     asOrganization: cf?.asOrganization ?? null,
     colo: cf?.colo ?? null,
     httpProtocol: cf?.httpProtocol ?? null,
+    // Coarse location from Cloudflare's IP geolocation. Replaced the Vercel
+    // geo headers when the app moved to the VPS; any field may be absent.
+    city: cf?.city ?? null,
+    country: cf?.country ?? null,
+    region: cf?.region ?? null,
+    latitude: cf?.latitude ?? null,
+    longitude: cf?.longitude ?? null,
   };
 
   const headers = baseHeaders(origin);

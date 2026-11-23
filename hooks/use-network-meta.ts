@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { GeoResponse } from "@/app/api/geo/route";
 
 export interface WorkerMeta {
   ip: string | null;
@@ -9,14 +8,41 @@ export interface WorkerMeta {
   asOrganization: string | null;
   colo: string | null;
   httpProtocol: string | null;
+  // Only present once the Worker version that returns location is deployed.
+  city?: string | null;
+  country?: string | null;
+  region?: string | null;
+  latitude?: string | null;
+  longitude?: string | null;
+}
+
+export interface GeoResponse {
+  city: string | null;
+  country: string | null;
+  region: string | null;
+  latitude: string | null;
+  longitude: string | null;
 }
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL;
 
+const EMPTY_GEO: GeoResponse = { city: null, country: null, region: null, latitude: null, longitude: null };
+
+function geoFromMeta(meta: WorkerMeta): GeoResponse {
+  return {
+    city: meta.city ?? null,
+    country: meta.country ?? null,
+    region: meta.region ?? null,
+    latitude: meta.latitude ?? null,
+    longitude: meta.longitude ?? null,
+  };
+}
+
 /**
- * Fetches ISP/ASN (from the Worker) and city/country (from Vercel geo
- * headers) once per page load. Shared by the ISP panel (display) and the
- * result-submission hook (persistence), so the two never double-fetch.
+ * Fetches ISP/ASN and coarse city/country from the Worker's /meta once per
+ * page load (Cloudflare's request.cf, at the edge nearest the user). Shared
+ * by the ISP panel (display) and the result-submission hook (persistence),
+ * so the two never double-fetch.
  */
 export function useNetworkMeta(): { meta: WorkerMeta | null; metaFailed: boolean; geo: GeoResponse | null } {
   const [meta, setMeta] = useState<WorkerMeta | null>(null);
@@ -30,23 +56,19 @@ export function useNetworkMeta(): { meta: WorkerMeta | null; metaFailed: boolean
       fetch(`${WORKER_URL}/meta`, { cache: "no-store" })
         .then((res) => (res.ok ? (res.json() as Promise<WorkerMeta>) : Promise.reject(new Error(String(res.status)))))
         .then((data) => {
-          if (!cancelled) setMeta(data);
+          if (cancelled) return;
+          setMeta(data);
+          setGeo(geoFromMeta(data));
         })
         .catch(() => {
-          if (!cancelled) setMetaFailed(true);
+          if (cancelled) return;
+          setMetaFailed(true);
+          setGeo(EMPTY_GEO);
         });
     } else {
       setMetaFailed(true);
+      setGeo(EMPTY_GEO);
     }
-
-    fetch("/api/geo", { cache: "no-store" })
-      .then((res) => res.json() as Promise<GeoResponse>)
-      .then((data) => {
-        if (!cancelled) setGeo(data);
-      })
-      .catch(() => {
-        if (!cancelled) setGeo({ city: null, country: null, region: null, latitude: null, longitude: null });
-      });
 
     return () => {
       cancelled = true;
