@@ -33,9 +33,9 @@ Fill these in as phases complete — later phases need them.
 | Value | Set in | Current |
 |---|---|---|
 | Worker URL (`NEXT_PUBLIC_WORKER_URL`) | Phase 2 | `https://netgauge-worker.zeeshanai.workers.dev` |
-| Vercel DNS target (`<hash>.vercel-dns-017.com`) | Phase 9 | `16ec4467c93f3de6.vercel-dns-017.com` (retired 2026-11-23; rollback target only) |
+| Vercel DNS target (`<hash>.vercel-dns-017.com`) | Phase 9 | `16ec4467c93f3de6.vercel-dns-017.com` (retired 2026-11-23; Vercel project deleted) |
 | GitHub repo | Phase 1 | `https://github.com/mzeeshanaltaf/NetGauge` |
-| Vercel project | Phase 9 | `netgauge` (team `zeeshans-projects-4841e9ae`) — superseded, see Coolify rows |
+| Vercel project | Phase 9 | `netgauge` (team `zeeshans-projects-4841e9ae`) — deleted 2026-11-23, see Coolify rows |
 | Coolify project / app | 2026-11-23 | project `NetGauge` (`xtc3w6szjrtolw4owue9bp4v`), application `netgauge` (`sip1y4bo6jywv6aalqvyqn5g`), railpack, port 3000 |
 | Umami website ID | 2026-11-23 | `848b0c10-96d3-4200-b7c6-0911b8e965da` (script `https://analytics.zeeshanai.cloud/script.js`) |
 
@@ -260,9 +260,9 @@ Not a numbered phase — ad-hoc requests against the live site.
 
 **Verified against the deployed container:** every page/route 200 (home, about, guides, sitemap, manifest, sw.js, llms.txt, embed with `frame-ancestors *`, OG image as PNG); HTTP → HTTPS 307; Umami tag present in the HTML. A real `POST /api/results` returned an id, `/r/<id>` rendered, and the stored `ipHash` equalled `sha256(<this PC's public IP> + IP_HASH_SALT)` — proving the Traefik header path gives the real client IP. The test row was then deleted. Not done: no browser (Playwright) run of a full speed test on the new host — the client bundle and Worker are unchanged, so that path should be unaffected.
 
-**Rollback:** the Vercel project `netgauge` is still deployed (without a database). Reverting the DNS record to the CNAME above restores the old routing.
+**Rollback:** none to Vercel any more — the user deleted the Vercel `netgauge` project the same day (and the `difflab` one, which had also moved to the VPS). Roll back by redeploying an earlier commit in Coolify.
 
 **Open items:**
 1. ~~Deploy the Worker~~ — done by the user the same day. `/meta` now returns `city`/`country`/`region`/lat/lon on the **free** tier (checked: Lahore / Punjab / PK), so the Phase 2 note claiming otherwise was wrong.
 2. ~~Deploy on push~~ — done: repo secrets `COOLIFY_API_TOKEN` (deploy-scoped) and `COOLIFY_APP_UUID` set, `.github/workflows/deploy.yml` committed.
-3. Once happy, remove the Vercel project (or at least its Git integration — it still builds on every push).
+3. ~~Remove the Vercel project~~ — deleted by the user. `.github/workflows/deploy.yml` now skips pushes that only touch `**.md` / `docs/**`, since every build takes ~15 min on the shared box.

@@ -26,6 +26,8 @@ env:
 on:
   push:
     branches: [main]
+    # Docs-only pushes don't change the app; skip the ~15 min rebuild.
+    paths-ignore: ['**.md', 'docs/**']
   workflow_dispatch: {} # allow manual re-trigger from the Actions tab
 
 concurrency:
