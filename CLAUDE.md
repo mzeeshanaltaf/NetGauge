@@ -8,14 +8,16 @@ Internet speed test measuring download, upload, latency, jitter, **loaded latenc
 
 ```
 Browser
-  ├── UI, share pages, OG ──────> Vercel (Next.js 15 App Router)
-  │                                 ├── Prisma ─> 76.13.7.106:5432 (schema: netgauge)
+  ├── UI, share pages, OG ──────> Hostinger VPS, Coolify app `netgauge` (Next.js 15, railpack)
+  │                                 ├── Prisma ─> 10.0.0.1:5432 (shared Postgres, schema: netgauge)
   │                                 ├── Upstash Redis (rate limiting)
   │                                 └── n8n webhook (contact form)
-  └── test bytes ───────────────> Cloudflare Worker (free tier, global)
+  └── test bytes, ISP + geo ────> Cloudflare Worker (free tier, global)
 ```
 
-**Why the split:** a speed test is a bandwidth application. On Vercel the bytes cost ~1–4¢/test past 1 TB. On the Hostinger VPS they would fight 18 co-tenant apps for 2 vCPUs and — being a single datacenter — would measure the undersea path for distant users instead of their line. Cloudflare's 300+ PoPs fix both, free. **Test traffic must never touch Vercel or the VPS.**
+**Why the split:** a speed test is a bandwidth application. On the Hostinger VPS the bytes would fight 18+ co-tenant apps for 2 vCPUs and — being a single datacenter — would measure the undersea path for distant users instead of their line. Cloudflare's 300+ PoPs fix that, free. **Test traffic must never touch the VPS.**
+
+**Hosting (since 2026-11-23):** the app runs on Coolify (application uuid `sip1y4bo6jywv6aalqvyqn5g`, project `NetGauge`), not Vercel — the VPS Postgres is no longer reachable from the public internet. Deploys go through `.github/workflows/deploy.yml` (repo secrets `COOLIFY_API_TOKEN`, `COOLIFY_APP_UUID`). `NEXT_PUBLIC_*` and `DATABASE_URL` are Coolify **build-time** vars (`prisma generate` in `postinstall` reads `DATABASE_URL`); changing one needs a rebuild. Don't set `NODE_ENV` at build time — `npm install` would skip the devDependencies the build needs. Locally, `DATABASE_URL` uses the Tailscale host `100.79.243.92`.
 
 ## Stack
 
@@ -23,7 +25,7 @@ Next.js 15 (App Router) · TypeScript · Tailwind v4 · shadcn/ui · Recharts ·
 
 ## Non-obvious rules
 
-**The database is shared with other apps.** `DATABASE_URL` points at the VPS Postgres used by difflab and others. This app owns **only the `netgauge` schema**. Never drop, migrate, or query outside it. Keep `connection_limit=1` in the URL — it is what makes a direct Postgres connection safe under serverless concurrency.
+**The database is shared with other apps.** `DATABASE_URL` points at the VPS Postgres used by difflab and others. This app owns **only the `netgauge` schema**. Never drop, migrate, or query outside it. Keep `connection_limit=1` in the URL — the shared Postgres has many tenants and this app needs very few connections.
 
 **Never persist raw IPs.** Store `sha256(ip + IP_HASH_SALT)`. The user's own IP may be shown client-side but is not written to the database.
 
@@ -37,9 +39,9 @@ Next.js 15 (App Router) · TypeScript · Tailwind v4 · shadcn/ui · Recharts ·
 
 **`/r/[id]` pages are server-rendered but `noindex`.** Rendering makes OG cards unfurl; indexing thousands of near-identical results would be thin duplicate content and drag the whole site down. Both are correct together.
 
-**Vercel geo headers are empty on localhost.** The ISP panel needs a graceful fallback; verify it on a preview deploy, not `next dev`.
+**ISP and location both come from the Worker's `/meta`** (`request.cf`: asn, asOrganization, colo, city, country, region, lat/lon). There is no server-side geo source on the VPS; any field can be null, and the ISP panel falls back gracefully.
 
-**Cloudflare's free tier gives `request.cf.asn` and `.colo` but not `city`/`country`.** ASN/ISP come from the Worker, city/country from Vercel. Neither source alone is sufficient.
+**Client IP comes from the proxy headers.** `lib/client-ip.ts` reads `X-Real-Ip` / `X-Forwarded-For` as set by Coolify's Traefik. Never trust them if the app is ever put behind another proxy without re-checking which hop sets them.
 
 ## Layout
 

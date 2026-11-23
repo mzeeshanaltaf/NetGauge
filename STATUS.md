@@ -2,7 +2,7 @@
 
 Tracks progress across sessions. **Read this first when starting a new session**, then open the phase doc you are working on.
 
-Last updated: 2026-09-08 · Current phase: **Phase 9 — in progress**
+Last updated: 2026-11-23 · Current phase: **Phase 9 — in progress** (hosting moved Vercel → Coolify)
 
 ---
 
@@ -33,9 +33,11 @@ Fill these in as phases complete — later phases need them.
 | Value | Set in | Current |
 |---|---|---|
 | Worker URL (`NEXT_PUBLIC_WORKER_URL`) | Phase 2 | `https://netgauge-worker.zeeshanai.workers.dev` |
-| Vercel DNS target (`<hash>.vercel-dns-017.com`) | Phase 9 | `16ec4467c93f3de6.vercel-dns-017.com` |
+| Vercel DNS target (`<hash>.vercel-dns-017.com`) | Phase 9 | `16ec4467c93f3de6.vercel-dns-017.com` (retired 2026-11-23; rollback target only) |
 | GitHub repo | Phase 1 | `https://github.com/mzeeshanaltaf/NetGauge` |
-| Vercel project | Phase 9 | `netgauge` (team `zeeshans-projects-4841e9ae`) |
+| Vercel project | Phase 9 | `netgauge` (team `zeeshans-projects-4841e9ae`) — superseded, see Coolify rows |
+| Coolify project / app | 2026-11-23 | project `NetGauge` (`xtc3w6szjrtolw4owue9bp4v`), application `netgauge` (`sip1y4bo6jywv6aalqvyqn5g`), railpack, port 3000 |
+| Umami website ID | 2026-11-23 | `848b0c10-96d3-4200-b7c6-0911b8e965da` (script `https://analytics.zeeshanai.cloud/script.js`) |
 
 ---
 
@@ -242,3 +244,25 @@ Not a numbered phase — ad-hoc requests against the live site.
 **Search Console verification, resolved without any new DNS write.** The user saw "You are a verified owner / Domain name provider: Successfully verified" on the `netgauge.zeeshanai.cloud` property and asked whether a TXT record had been added. Checked the live zone (`mcp__hostinger-dns__DNS_getDNSRecordsV1` on `zeeshanai.cloud`): the apex (`@`) already carries `google-site-verification=YN2K3FRzCB4YeGAOs9robe4qgnpz9WUx3cup2TuJGbA`, added previously when a Domain-type property was verified for the root domain (unrelated to netgauge). A Google Domain property's DNS verification automatically covers every subdomain, so `netgauge.zeeshanai.cloud` inherited it for free — no new record was or needed to be written. (For contrast, `n8n.zeeshanai.cloud` carries its own separate `google-site-verification` TXT, from an earlier individual URL-prefix verification predating the domain-level one.)
 
 **Phase 9's only remaining open item is now the PageSpeed Insights re-check** — told the user to submit `/sitemap.xml` under Indexing → Sitemaps in Search Console next.
+
+### 2026-11-23 — Hosting moved from Vercel to Coolify on the VPS
+
+**Why:** since 2026-11-23 the shared VPS Postgres drops port 5432 on the public interface (`postgres-public-block` systemd unit; see `~/.claude/CLAUDE.md`). Vercel reached it via `76.13.7.106:5432`, so the Vercel deployment lost its database. The app now runs on the same box under Coolify and connects over the docker bridge (`10.0.0.1:5432`). Locally, `DATABASE_URL` uses the Tailscale host `100.79.243.92`.
+
+**Code changes (commits `e3a4f2b`, `0d694c3`):**
+- `@vercel/functions` removed. `ipAddress()` → `lib/client-ip.ts` (Traefik's `X-Real-Ip`, then the first `X-Forwarded-For` hop); `/api/contact` uses the same helper.
+- `/api/geo` (Vercel `geolocation()`) deleted. City/country/region/lat/lon now come from the Worker's `/meta` (`request.cf`), mapped to the existing `GeoResponse` shape in `hooks/use-network-meta.ts`. **The Worker change is committed but not deployed** — wrangler's OAuth had expired and the session is non-interactive. Until `cd worker && npx wrangler deploy` runs, the ISP panel shows City/Region "Unknown" and new rows have null city/country; everything else works.
+- Self-hosted Umami tracker added to the root layout (`NEXT_PUBLIC_UMAMI_SCRIPT_URL` / `NEXT_PUBLIC_UMAMI_WEBSITE_ID`, both build-time); privacy page lists Umami and names Hostinger instead of Vercel; About copy no longer says Vercel.
+
+**Coolify:** project `NetGauge`, app `netgauge` (`sip1y4bo6jywv6aalqvyqn5g`), railpack, port 3000, from the public GitHub repo. Env: `DATABASE_URL` + all `NEXT_PUBLIC_*` build-time; `N8N_*`, `UPSTASH_*`, `IP_HASH_SALT` runtime-only; `RAILPACK_NODE_VERSION=22`, `RAILPACK_INSTALL_CMD=npm install`. `NODE_ENV` deliberately not set at build (it would make `npm install` skip devDependencies). First build took ~15 min on a loaded box (load avg ~6), most of it exporting image layers. Coolify auto-deploy is off and the repo has no Coolify webhook.
+
+**DNS:** `netgauge` CNAME → `16ec4467c93f3de6.vercel-dns-017.com` (TTL 14400) replaced with `A 76.13.7.106` (TTL 300) via the Hostinger DNS MCP (`dns_records_delete` with `filters`, then `dns_records_update` non-overwrite). The skill's `dns-cutover.js` couldn't find a Hostinger token in `~/.claude.json`; the MCP path works. After the proxy restart Traefik got a Let's Encrypt cert (issuer YR2, expires 2027-02-21).
+
+**Verified against the deployed container:** every page/route 200 (home, about, guides, sitemap, manifest, sw.js, llms.txt, embed with `frame-ancestors *`, OG image as PNG); HTTP → HTTPS 307; Umami tag present in the HTML. A real `POST /api/results` returned an id, `/r/<id>` rendered, and the stored `ipHash` equalled `sha256(<this PC's public IP> + IP_HASH_SALT)` — proving the Traefik header path gives the real client IP. The test row was then deleted. Not done: no browser (Playwright) run of a full speed test on the new host — the client bundle and Worker are unchanged, so that path should be unaffected.
+
+**Rollback:** the Vercel project `netgauge` is still deployed (without a database). Reverting the DNS record to the CNAME above restores the old routing.
+
+**Open items:**
+1. Deploy the Worker (`cd worker && npx wrangler deploy`), then confirm `/meta` returns `city`/`country`. The old note that the free tier doesn't expose them was never tested.
+2. Add repo secrets `COOLIFY_API_TOKEN` (the deploy-scoped token in `.env.local`) and `COOLIFY_APP_UUID` = `sip1y4bo6jywv6aalqvyqn5g`, then commit `.github/workflows/deploy.yml` (in the working tree, not yet committed) — the push is the test.
+3. Once happy, remove the Vercel project (or at least its Git integration — it still builds on every push).

@@ -31,7 +31,7 @@ to apply database migrations to the `netgauge` schema.
 
 ## Tech stack
 
-Next.js 15 (App Router) · TypeScript · Tailwind v4 · shadcn/ui · Recharts · Prisma · Upstash · Cloudflare Workers. See [CLAUDE.md](CLAUDE.md) for why the test traffic runs on a separate Cloudflare Worker instead of Vercel.
+Next.js 15 (App Router) · TypeScript · Tailwind v4 · shadcn/ui · Recharts · Prisma · Upstash · Cloudflare Workers. See [CLAUDE.md](CLAUDE.md) for why the test traffic runs on a separate Cloudflare Worker instead of the app server. The app itself is deployed to Coolify on a Hostinger VPS on every push to `main` (`.github/workflows/deploy.yml`).
 
 ## Testing
 
